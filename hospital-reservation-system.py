@@ -386,7 +386,7 @@ def show_all_members():
 
     with open('reservations_total_only.csv', 'r', encoding="utf-8", newline="") as file:
         reader = csv.reader(file)
-        s
+
 
     # user.csv 전체 회원 조회
 
