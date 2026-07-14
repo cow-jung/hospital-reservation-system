@@ -29,6 +29,8 @@
 
 '''
 import csv
+from locale import format_string
+
 
 def show_login_menu(): # 로그인 첫 메뉴
     print('======== 🏥 병원 예약 관리 시스템 로그인 ========')
@@ -457,12 +459,30 @@ def reservation_manage_menu():
     print('0. 이전 메뉴')
     print('==========================\n')
 
+
 def show_all_reservations():
-    print('\n======== 전체 예약 조회 ========')
+    import csv
 
-    with open('reservations_total_only.csv', 'r', encoding="utf-8", newline="") as file:
-        reader = csv.reader(file)
+    print("\n============================= 전체 예약 조회 =============================")
 
+    with open("reservations_total_only.csv", "r", encoding="utf-8-sig", newline="") as file:
+        reader = list(csv.reader(file))
+
+    # 헤더 출력
+    print(f"{'\t예약번호':<14} {'환자번호':<7} {'의료진번호':<7} {'예약날짜':<12} {'예약시간':<8} {'총금액':<8} {'상태':<10}")
+    print("=" * 90)
+
+    # 데이터 출력
+    for row in reader[1:]:
+        print(f"{row[0]:>15} "
+              f"{row[1]:>10} "
+              f"{row[2]:>10} "
+              f"{row[3]:>12} "
+              f"{row[4]:>8} "
+              f"{row[5]:>8} "
+              f"{row[6]:>10}")
+
+    print("=" * 90)
     # reservation.csv 전체 예약 조회
 
 
