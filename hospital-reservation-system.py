@@ -384,9 +384,6 @@ def member_manage_menu():
 def show_all_members():
     print('\n======== 전체 회원 조회 ========')
 
-    with open('reservations_total_only.csv', 'r', encoding="utf-8", newline="") as file:
-        reader = csv.reader(file)
-
 
 
     # user.csv 전체 회원 조회
@@ -461,6 +458,9 @@ def reservation_manage_menu():
 
 def show_all_reservations():
     print('\n======== 전체 예약 조회 ========')
+
+    with open('reservations_total_only.csv', 'r', encoding="utf-8", newline="") as file:
+        reader = csv.reader(file)
 
     # reservation.csv 전체 예약 조회
 
