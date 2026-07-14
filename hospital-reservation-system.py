@@ -60,7 +60,7 @@ def login(current_user): # 로그인 진행
 
 # 입력한 아이디/비밀번호가 일치하는 사용자 찾기
 def find_user(user_id, password):
-    with open('hospital_reservation_system/user.csv','r',encoding='utf-8-sig') as file:
+    with open('user.csv','r',encoding='utf-8-sig') as file:
         reader = csv.DictReader(file)
         for user in reader:
             if user['아이디'] == user_id and user['비밀번호'] == password:
