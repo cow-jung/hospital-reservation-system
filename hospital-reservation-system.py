@@ -686,11 +686,60 @@ def reservation_manage_menu():
     print('0. 이전 메뉴')
     print('==========================\n')
 
-def show_all_reservations():
-    print('\n======== 전체 예약 조회 ========')
 
-    with open('reservations_total_only.csv', 'r', encoding="utf-8", newline="") as file:
-        reader = csv.reader(file)
+def show_all_reservations():
+    import csv
+    from wcwidth import wcswidth
+
+    # CSV 파일 읽기
+    with open("reservations_total_only.csv", "r", encoding="utf-8-sig") as file:
+        reader = list(csv.reader(file))
+
+    # 한글을 포함한 문자열의 출력 너비를 맞춰주는 함수
+    def pad(text, width, align="left"):
+        text = str(text)
+        space = width - wcswidth(text)
+
+        if align == "right":
+            return " " * space + text
+        else:
+            return text + " " * space
+
+    # 표의 가로 구분선
+    line = "=" * 95
+
+    # 제목 출력
+    print(line)
+    print("전체 예약 조회".center(95))
+    print(line)
+
+    # 헤더 출력
+    print(
+        pad("   예약번호", 21),
+        pad("환자번호", 14),
+        pad("의료진번호", 17),
+        pad("예약날짜", 16),
+        pad("예약시간", 14),
+        pad("총금액", 14),
+        pad("상태", 10)
+    )
+
+    print(line)
+
+    # 예약 정보 출력
+    for row in reader[1:]:
+        print(
+            pad(row[0], 18),
+            pad(row[1], 13),
+            pad(row[2], 12),
+            pad(row[3], 16),
+            pad(row[4], 5),
+            pad(row[5], 11, 'right') + '      ',
+            pad(row[6], 5)
+        )
+
+    # 표의 마지막 구분선
+    print(line)
 
     # reservation.csv 전체 예약 조회
 
