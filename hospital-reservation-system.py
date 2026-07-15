@@ -876,30 +876,30 @@ def reservation_manage_menu():
     print('==========================\n')
 
 
+# 한글을 포함한 문자열의 출력 너비를 맞춰주는 함수
+def pad(text, width, align="left"):
+    text = str(text)
+    space = width - wcswidth(text)
+
+    if align == "right":
+        return " " * space + text
+    else:
+        return text + " " * space
+
 def show_all_reservations():
     import csv
     from wcwidth import wcswidth
 
     # CSV 파일 읽기
-    with open("reservations_total_only.csv", "r", encoding="utf-8-sig") as file:
+    with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
         reader = list(csv.reader(file))
 
-    # 한글을 포함한 문자열의 출력 너비를 맞춰주는 함수
-    def pad(text, width, align="left"):
-        text = str(text)
-        space = width - wcswidth(text)
-
-        if align == "right":
-            return " " * space + text
-        else:
-            return text + " " * space
-
     # 표의 가로 구분선
-    line = "=" * 95
+    line = "=" * 125
 
     # 제목 출력
     print(line)
-    print("전체 예약 조회".center(95))
+    print("전체 예약 조회".center(len(line)))
     print(line)
 
     # 헤더 출력
@@ -908,7 +908,9 @@ def show_all_reservations():
         pad("환자번호", 14),
         pad("의료진번호", 17),
         pad("예약날짜", 16),
-        pad("예약시간", 14),
+        pad("예약시간", 15),
+        pad("급여", 12),
+        pad("비급여", 14),
         pad("총금액", 14),
         pad("상태", 10)
     )
@@ -922,30 +924,136 @@ def show_all_reservations():
             pad(row[1], 13),
             pad(row[2], 12),
             pad(row[3], 16),
-            pad(row[4], 5),
-            pad(row[5], 11, 'right') + '      ',
-            pad(row[6], 5)
+            pad(row[4], 6),
+            pad(f"{int(row[5]):,}", 11, 'right') + ' ',
+            pad(f"{int(row[6]):,}", 11, 'right') + ' ',
+            pad(f"{int(row[7]):,}", 11, 'right') + '      ',
+            pad(row[8], 5)
         )
 
     # 표의 마지막 구분선
     print(line)
 
-    # reservation.csv 전체 예약 조회
-
 
 def search_reservation_by_patient():
-    print('\n======== 환자별 예약 조회 ========')
+    import csv
 
-    # 환자번호 또는 이름 입력
-    # 해당 환자의 예약 조회
+    # 조회할 환자번호 입력
+    patient_no = input("\n환자번호를 입력하세요 : ")
+
+    # CSV 파일 읽기
+    with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
+        reader = list(csv.reader(file))
+
+    # 표의 가로 구분선
+    line = "=" * 125
+
+    print()
+    print(line)
+    print("환자별 예약 조회".center(len(line)))
+    print(line)
+
+    # 헤더 출력
+    print(
+        pad("   예약번호", 21),
+        pad("환자번호", 14),
+        pad("의료진번호", 17),
+        pad("예약날짜", 16),
+        pad("예약시간", 15),
+        pad("급여", 12),
+        pad("비급여", 14),
+        pad("총금액", 14),
+        pad("상태", 10)
+    )
+
+    print(line)
+
+    # 조회 결과 확인 변수
+    found = False
+
+    # 입력한 환자번호와 일치하는 예약 조회
+    for row in reader[1:]:
+        if row[1] == patient_no:
+            found = True
+
+            print(
+                pad(row[0], 18),
+                pad(row[1], 13),
+                pad(row[2], 12),
+                pad(row[3], 16),
+                pad(row[4], 6),
+                pad(f"{int(row[5]):,}", 11, 'right') + ' ',
+                pad(f"{int(row[6]):,}", 11, 'right') + ' ',
+                pad(f"{int(row[7]):,}", 11, 'right') + '      ',
+                pad(row[8], 5)
+            )
+
+    print(line)
+
+    # 조회 결과가 없는 경우
+    if not found:
+        print("조회된 예약이 없습니다.")
+
 
 
 def update_reservation():
     print('\n======== 예약 수정 ========')
 
-    # 수정할 예약 검색
-    # 예약 날짜 또는 시간 변경
-    # reservation.csv 저장
+    # 수정할 예약번호 입력
+    reservation_no = input("수정할 예약번호를 입력하세요 : ")
+
+    # 파일읽기
+    with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
+        reader = list(csv.reader(file))
+
+        # 예약번호를 찾았는지 확인하는 변수
+        found = False
+
+        # 헤더를 제외한 예약 데이터 검색
+        for row in reader[1:]:
+
+            # 예약번호가 일치하면
+            if row[0] == reservation_no:
+                found = True
+
+                # 현재 예약 정보 출력
+                print("\n================ 현재 예약 정보 ================")
+                print(f"예약번호   : {row[0]}")
+                print(f"환자번호   : {row[1]}")
+                print(f"의료진번호 : {row[2]}")
+                print(f"예약날짜   : {row[3]}")
+                print(f"예약시간   : {row[4]}")
+                print("==============================================")
+
+                # 새로운 예약 날짜와 시간 입력
+                new_date = input("새 예약날짜를 입력하세요 (YYYY-MM-DD) : ")
+                new_time = input("새 예약시간을 입력하세요 (HH:MM) : ")
+
+                # 수정 여부 확인
+                check = input("\n정말 수정하시겠습니까? (Y/N) : ").upper()
+
+                if check == "Y":
+                    # 날짜와 시간 수정
+                    row[3] = new_date
+                    row[4] = new_time
+
+                    print("\n예약이 수정되었습니다.")
+
+                else:
+                    print("\n예약 수정을 취소했습니다.")
+
+                break
+
+        # 예약번호를 찾지 못한 경우
+        if not found:
+            print("\n예약번호가 존재하지 않습니다.")
+            return
+
+        # 수정된 내용을 csv파일에 저장
+        with open("reservations_with_fee_breakdown.csv", "w", encoding="utf-8-sig", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(reader)
+
 
 
 def cancel_reservation():
