@@ -31,6 +31,8 @@
 import csv
 import re
 from getpass import getpass
+from tabulate import tabulate
+from wcwidth import wcswidth
 
 def show_login_menu(): # 로그인 첫 메뉴
     print('======== 🏥 병원 예약 관리 시스템 로그인 ========')
@@ -131,6 +133,8 @@ def parse_resident_number(resident_number):
     else:
         return None, None
 
+    return birth_date, gender
+
 # 연락처 형식 확인
 def validate_phone_number(phone_number):
     pattern = r'^010-\d{4}-\d{4}$'
@@ -185,7 +189,7 @@ def signup():
         break
 
     while True:
-        new_password = getpass('비밀번호를 입력하세요 : ').strip()
+        new_password = input('비밀번호를 입력하세요 : ').strip()
 
         if new_password == '취소':
             print('회원가입을 취소합니다.\n')
@@ -195,7 +199,7 @@ def signup():
             print('비밀번호는 8자 이상 입력하세요\n')
             continue
 
-        confirm_password = getpass('비밀번호를 다시 입력하세요 : ').strip()
+        confirm_password = input('비밀번호를 다시 입력하세요 : ').strip()
 
         if new_password != confirm_password :
             print('비밀번호가 일치하지 않습니다.\n')
@@ -226,6 +230,7 @@ def signup():
 
         if not validate_resident_number(resident_number) :
             print('주민등록번호 형식이 올바르지 않습니다.\n')
+            continue
 
         birth_date, gender = parse_resident_number(resident_number)
 
@@ -245,8 +250,9 @@ def signup():
 
         if not validate_phone_number(phone_number) :
             print('연락처 형식이 올바르지 않습니다.\n')
+            continue
 
-        if is_duplicate_user_id(phone_number):
+        if is_duplicate_phone(phone_number):
             print('이미 가입한 연락처 입니다.\n')
             continue
         break
@@ -297,29 +303,6 @@ def signup():
         else:
             print('Y 또는 N을 입력하세요.\n')
 
-def user_menu(current_user): # 사용자 로그인 시 메뉴
-    print('======== 병원 예약 관리 ========')
-    print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
-    print('1. 진료과 조회')
-    print('2. 예약하기')
-    print('3. 내 예약 관리')
-    print('4. 진료 이력 조회')
-    print('5. 로그아웃')
-    print('=============================\n')
-
-def admin_menu(current_user): # 관리자 로그인 시 메뉴
-    print('======== 병원 예약 관리 ========')
-    print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
-    print('1. 회원 관리')
-    print('2. 예약 관리')
-    print('3. 진료과/의료진 관리')
-    print('4. 진료비/매출 조회')
-    print('5. 로그아웃')
-    print('=============================\n')
-
-def signup(): # 회원가입 메뉴
-    print("회원가입")
-
 # 로그아웃 기능
 def logout(current_user):
     # 로그인 상태가 아니면 종료
@@ -329,6 +312,44 @@ def logout(current_user):
     # 로그아웃하면 현재 사용자를 None으로 반환
     print(current_user['이름'], '님 로그아웃')
     return None
+
+
+'''============= 사용자 메뉴 ============='''
+# 사용자 메뉴 전체 흐름
+def user_view(current_user):
+    while True:
+        user_menu(current_user)
+        choice = input('메뉴를 선택하세요 : ')
+
+        if choice == '1':
+            department_doctor_view()
+
+        elif choice == '2':
+            reservation(current_user)
+
+        elif choice == '3':
+            my_reservation(current_user)
+
+        elif choice == '4':
+            medical_history(current_user)
+
+        elif choice == '5':
+            current_user = logout(current_user)
+            return current_user
+
+        else:
+            print('올바른 메뉴 번호를 입력하세요.\n')
+
+def user_menu(current_user): # 사용자 로그인 시 메뉴
+    print('\n======== 병원 예약 관리 ========')
+    print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
+    print('1. 진료과 조회')
+    print('2. 예약하기')
+    print('3. 내 예약 관리')
+    print('4. 진료 이력 조회')
+    print('5. 로그아웃')
+    print('=============================\n')
+
 
 '''============= 진료과/의료진 조회 ============='''
 # 진료과/의료진 조회 전체 흐름
@@ -369,10 +390,71 @@ def show_departments():
     print('0. 이전')
     print('=============================\n')
 
+# wcswidth 기준으로 가운데 정렬해주는 함수 (새로 추가)
+def center_by_width(text, width):
+    text_width = wcswidth(text)
+    total_padding = width - text_width
+    left = total_padding // 2
+    right = total_padding - left
+    return ' ' * left + text + ' ' * right
+
 # 선택한 진료과의 의료진 전체 출력
 def show_doctors_by_department(department):
-    print(department)
-    pass
+    doctor_list = []
+    phone_number = ''
+
+    with open('doctors.csv', 'r', encoding='utf-8-sig',newline='') as file:
+        reader = csv.DictReader(file)
+
+        num = 1
+
+        for doctor in reader:
+            if doctor['진료과'] == department:
+                phone_number = doctor['진료과전화번호']
+
+                doctor_list.append([
+                    num,
+                    doctor['이름'],
+                    doctor['진료요일'].replace('월,화,수,목,금', '월~금'),
+                    f"{doctor['진료시작시간']} ~ "
+                    f"{doctor['진료종료시간']}"
+                ])
+                num += 1
+
+    if doctor_list:
+        table = (tabulate(
+            doctor_list,
+            headers=[
+                '번호',
+                '의료진',
+                '진료 요일',
+                '진료 시간'
+                ],
+            tablefmt='grid',
+            disable_numparse=True,
+            colalign=(
+                'center',  # 번호
+                'center',  # 의료진
+                'center',  # 진료요일
+                'center'  # 진료시간
+            )))
+
+        first_line = table.splitlines()[0]
+        table_width = wcswidth(first_line)
+        title = f'🩺 [{department}] 의료진'
+
+        print('=' * table_width)
+        print(center_by_width(title, table_width))
+        print('=' * table_width)
+        print()
+        print(table)
+        print()
+        print(f'📞 진료과 대표번호 : {phone_number}')
+        print('=' * table_width)
+        print('\n')
+
+    else:
+        print('등록된 의료진이 없습니다.')
 
 '''============= 예약 ============='''
 # 예약 전체 흐름
@@ -459,8 +541,24 @@ def my_reservation_menu():
 # 내 예약 조회
 def show_my_reservations(current_user):
     print('\n======== 예약 조회 ========')
-    print(current_user['이름'], '님의 예약을 조회합니다.')
-    print()
+
+    with (open('reservations_total_only.csv', 'r', encoding='utf-8-sig') as file):
+        reader = csv.DictReader(file)
+        next(reader)
+
+
+        print(current_user['이름'], '님의 예약을 조회합니다.')
+
+        for reservation in reader:
+            if reservation['환자번호'] == current_user['환자번호'] and reservation['상태'] == '예약완료':
+                print('예약번호 :', reservation['예약번호'])
+                print('환자번호 :', reservation['환자번호'])
+                print('의료진번호 :', reservation['의료진번호'])
+                print('예약날짜 :', reservation['예약날짜'])
+                print('예약시간 :', reservation['예약시간'])
+                print('총금액 :', reservation['총금액'])
+                print('상태 :', reservation['상태'])
+                print()
 
 # 내 예약 변경
 def update_my_reservation(current_user):
@@ -934,7 +1032,7 @@ while True:
 
         # 일반 회원
         else:
-            user_menu(current_user)
+            urrent_user = user_view(current_user)
 
 
 
