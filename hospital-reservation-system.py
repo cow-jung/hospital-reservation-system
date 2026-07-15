@@ -606,11 +606,75 @@ def medical_history_menu():
 
 # 전체 진료 이력 조회
 def show_medical_history(current_user):
-    print('\n======== 전체 진료 이력 ========')
-
     # 로그인한 사용자의 환자번호 확인
     # 해당 환자의 진료 이력 전체 조회
     # 진료일자 / 진료과 / 의료진 / 진료상태 출력
+
+    medical_history_list = []
+    with open('reservations_total_only.csv', 'r', encoding='utf-8-sig',newline='') as file:
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            if row['환자번호'] == current_user['환자번호'] and row['상태']=='진료완료':
+                doctor_info = find_doctor_by_number(row['의료진번호'])
+                if doctor_info is not None:
+                    doctor_name = doctor_info['이름']
+                    department = doctor_info['진료과']
+                else:
+                    doctor_name = '정보없음'
+                    department = '정보없음'
+
+                medical_history_list.append([
+                    len(medical_history_list)+1,
+                    row['예약번호'],
+                    department,
+                    doctor_name,
+                    row['예약날짜'],
+                    row['예약시간'],
+                    f"{int(row['총금액']):,}원",
+                    row['상태']
+                ])
+
+        if medical_history_list:
+            table = tabulate(
+                medical_history_list,
+                headers=[
+                    '번호',
+                    '진료과',
+                    '의료진',
+                    '진료날짜',
+                    '진료시간',
+                    '총금액',
+                    '상태'
+                ],
+                tablefmt='grid',
+                stralign='center',
+                numalign='center',
+                disable_numparse=True
+            )
+            first_line = table.splitlines()[0]
+            table_width = wcswidth(first_line)
+            title = '🩺 전체 진료 이력'
+
+            print('=' * table_width)
+            print(center_by_width(title, table_width))
+            print('=' * table_width)
+            print()
+            print(table)
+            print('=' * table_width)
+
+        else:
+            print('진료 이력이 없습니다.\n')
+
+# 의료진 찾기
+def find_doctor_by_number(doctor_number):
+    with open('doctors.csv', 'r', encoding='utf-8-sig',newline='') as file:
+        reader = csv.DictReader(file)
+
+        for doctor in reader:
+            if doctor['의료진번호'] == doctor_number:
+                return doctor
+    return None
 
 # 진료 이력 상세 조회
 def show_medical_history_detail(current_user):
