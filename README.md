@@ -38,17 +38,12 @@
 ```
 hospital-reservation-system/
 ├── main.py                # 프로그램 실행 진입점
-├── login.py                # 로그인 / 회원가입 기능
-├── reservation.py          # 예약 관련 기능
-├── admin.py                 # 관리자 기능
-├── report.py                # 통계 및 리포트 기능
 ├── data/
 │   ├── users.csv
+│   ├── reservations.csv
 │   └── reservations.csv
 └── README.md
 ```
-
-> 📝 실제 파일/폴더 구조에 맞게 수정해주세요.
 
 ---
 
@@ -95,7 +90,7 @@ python main.py
 
 ## 🛠️ 사용 기술
 
-- **Language**: Python 3.x
+- **Language**: Python 3.12
 - **Data Storage**: CSV
 - **Tools**: Git, GitHub
 
