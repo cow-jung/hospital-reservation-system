@@ -31,6 +31,8 @@
 import csv
 import re
 from getpass import getpass
+from tabulate import tabulate
+from wcwidth import wcswidth
 
 def show_login_menu(): # 로그인 첫 메뉴
     print('======== 🏥 병원 예약 관리 시스템 로그인 ========')
@@ -131,6 +133,8 @@ def parse_resident_number(resident_number):
     else:
         return None, None
 
+    return birth_date, gender
+
 # 연락처 형식 확인
 def validate_phone_number(phone_number):
     pattern = r'^010-\d{4}-\d{4}$'
@@ -185,7 +189,7 @@ def signup():
         break
 
     while True:
-        new_password = getpass('비밀번호를 입력하세요 : ').strip()
+        new_password = input('비밀번호를 입력하세요 : ').strip()
 
         if new_password == '취소':
             print('회원가입을 취소합니다.\n')
@@ -195,7 +199,7 @@ def signup():
             print('비밀번호는 8자 이상 입력하세요\n')
             continue
 
-        confirm_password = getpass('비밀번호를 다시 입력하세요 : ').strip()
+        confirm_password = input('비밀번호를 다시 입력하세요 : ').strip()
 
         if new_password != confirm_password :
             print('비밀번호가 일치하지 않습니다.\n')
@@ -226,6 +230,7 @@ def signup():
 
         if not validate_resident_number(resident_number) :
             print('주민등록번호 형식이 올바르지 않습니다.\n')
+            continue
 
         birth_date, gender = parse_resident_number(resident_number)
 
@@ -245,8 +250,9 @@ def signup():
 
         if not validate_phone_number(phone_number) :
             print('연락처 형식이 올바르지 않습니다.\n')
+            continue
 
-        if is_duplicate_user_id(phone_number):
+        if is_duplicate_phone(phone_number):
             print('이미 가입한 연락처 입니다.\n')
             continue
         break
@@ -296,39 +302,6 @@ def signup():
 
         else:
             print('Y 또는 N을 입력하세요.\n')
-
-def user_menu(current_user): # 사용자 로그인 시 메뉴
-    print('======== 병원 예약 관리 ========')
-    print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
-    print('1. 진료과 조회')
-    print('2. 예약하기')
-    print('3. 내 예약 관리')
-    print('4. 진료 이력 조회')
-    print('5. 로그아웃')
-    print('=============================\n')
-
-def admin_menu(current_user): # 관리자 로그인 시 메뉴
-    print('======== 병원 예약 관리 ========')
-    print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
-    print('1. 회원 관리')
-    print('2. 예약 관리')
-    print('3. 진료과/의료진 관리')
-    print('4. 진료비/매출 조회')
-    print('5. 로그아웃')
-    print('=============================\n')
-
-def signup(): # 회원가입 메뉴
-    print("회원가입")
-
-# 로그아웃 기능
-def logout(current_user):
-    # 로그인 상태가 아니면 종료
-    if current_user is None:
-        print('로그인 상태가 아닙니다.')
-        return None
-    # 로그아웃하면 현재 사용자를 None으로 반환
-    print(current_user['이름'], '님 로그아웃')
-    return None
 
 '''============= 진료과/의료진 조회 ============='''
 # 진료과/의료진 조회 전체 흐름
