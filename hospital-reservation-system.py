@@ -303,6 +303,43 @@ def signup():
         else:
             print('Y 또는 N을 입력하세요.\n')
 
+'''============= 사용자 메뉴 ============='''
+# 사용자 메뉴 전체 흐름
+def user_view(current_user):
+    while True:
+        user_menu(current_user)
+        choice = input('메뉴를 선택하세요 : ')
+
+        if choice == '1':
+            department_doctor_view()
+
+        elif choice == '2':
+            reservation(current_user)
+
+        elif choice == '3':
+            my_reservation(current_user)
+
+        elif choice == '4':
+            medical_history(current_user)
+
+        elif choice == '5':
+            current_user = logout(current_user)
+            return current_user
+
+        else:
+            print('올바른 메뉴 번호를 입력하세요.\n')
+
+def user_menu(current_user): # 사용자 로그인 시 메뉴
+    print('\n======== 병원 예약 관리 ========')
+    print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
+    print('1. 진료과 조회')
+    print('2. 예약하기')
+    print('3. 내 예약 관리')
+    print('4. 진료 이력 조회')
+    print('5. 로그아웃')
+    print('=============================\n')
+
+
 '''============= 진료과/의료진 조회 ============='''
 # 진료과/의료진 조회 전체 흐름
 def department_doctor_view():
