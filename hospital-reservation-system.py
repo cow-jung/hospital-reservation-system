@@ -569,7 +569,34 @@ def update_my_reservation(current_user):
 # 내 예약 취소
 def cancel_my_reservation(current_user):
     print('\n======== 예약 취소 ========')
-    print(current_user['이름'], '님의 예약을 취소합니다.')
+
+    reservations = []
+
+    # 1. 파일에서 데이터 읽어오기
+    with open('reservations_with_fee_breakdown.csv', 'r', encoding='utf-8-sig', newline='') as file:
+        reader = csv.DictReader(file)
+        fieldnames = reader.fieldnames
+        for reservation in reader:
+            reservations.append(reservation)
+
+
+        reservation_number = input('취소할 예약번호 : ')
+        is_found = False
+
+        for reservation in reservations:
+            if reservation['예약번호'] == reservation_number and reservation['환자번호']==current_user['환자번호']:
+                reservation['상태'] ='예약취소'
+                print(current_user['이름'], '님의 예약을 취소합니다.')
+                is_found = True
+
+    if is_found:
+        with open('reservations_with_fee_breakdown.csv', 'w', encoding='utf-8-sig', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()  # 맨 첫 줄에 컬럼명(헤더) 작성
+            writer.writerows(reservations)  # '취소'로 바뀐 데이터 전체 작성
+    else:
+        print("일치하는 예약 정보를 찾을 수 없습니다.")
+
     print()
 
 '''============= 진료 이력 조회 ============='''
