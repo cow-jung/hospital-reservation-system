@@ -459,8 +459,24 @@ def my_reservation_menu():
 # 내 예약 조회
 def show_my_reservations(current_user):
     print('\n======== 예약 조회 ========')
-    print(current_user['이름'], '님의 예약을 조회합니다.')
-    print()
+
+    with (open('reservations_total_only.csv', 'r', encoding='utf-8-sig') as file):
+        reader = csv.DictReader(file)
+        next(reader)
+
+
+        print(current_user['이름'], '님의 예약을 조회합니다.')
+
+        for reservation in reader:
+            if reservation['환자번호'] == current_user['환자번호'] and reservation['상태'] == '예약완료':
+                print('예약번호 :', reservation['예약번호'])
+                print('환자번호 :', reservation['환자번호'])
+                print('의료진번호 :', reservation['의료진번호'])
+                print('예약날짜 :', reservation['예약날짜'])
+                print('예약시간 :', reservation['예약시간'])
+                print('총금액 :', reservation['총금액'])
+                print('상태 :', reservation['상태'])
+                print()
 
 # 내 예약 변경
 def update_my_reservation(current_user):
