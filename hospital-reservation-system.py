@@ -390,10 +390,71 @@ def show_departments():
     print('0. 이전')
     print('=============================\n')
 
+# wcswidth 기준으로 가운데 정렬해주는 함수 (새로 추가)
+def center_by_width(text, width):
+    text_width = wcswidth(text)
+    total_padding = width - text_width
+    left = total_padding // 2
+    right = total_padding - left
+    return ' ' * left + text + ' ' * right
+
 # 선택한 진료과의 의료진 전체 출력
 def show_doctors_by_department(department):
-    print(department)
-    pass
+    doctor_list = []
+    phone_number = ''
+
+    with open('doctors.csv', 'r', encoding='utf-8-sig',newline='') as file:
+        reader = csv.DictReader(file)
+
+        num = 1
+
+        for doctor in reader:
+            if doctor['진료과'] == department:
+                phone_number = doctor['진료과전화번호']
+
+                doctor_list.append([
+                    num,
+                    doctor['이름'],
+                    doctor['진료요일'].replace('월,화,수,목,금', '월~금'),
+                    f"{doctor['진료시작시간']} ~ "
+                    f"{doctor['진료종료시간']}"
+                ])
+                num += 1
+
+    if doctor_list:
+        table = (tabulate(
+            doctor_list,
+            headers=[
+                '번호',
+                '의료진',
+                '진료 요일',
+                '진료 시간'
+                ],
+            tablefmt='grid',
+            disable_numparse=True,
+            colalign=(
+                'center',  # 번호
+                'center',  # 의료진
+                'center',  # 진료요일
+                'center'  # 진료시간
+            )))
+
+        first_line = table.splitlines()[0]
+        table_width = wcswidth(first_line)
+        title = f'🩺 [{department}] 의료진'
+
+        print('=' * table_width)
+        print(center_by_width(title, table_width))
+        print('=' * table_width)
+        print()
+        print(table)
+        print()
+        print(f'📞 진료과 대표번호 : {phone_number}')
+        print('=' * table_width)
+        print('\n')
+
+    else:
+        print('등록된 의료진이 없습니다.')
 
 '''============= 예약 ============='''
 # 예약 전체 흐름
