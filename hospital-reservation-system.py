@@ -303,6 +303,17 @@ def signup():
         else:
             print('Y 또는 N을 입력하세요.\n')
 
+# 로그아웃 기능
+def logout(current_user):
+    # 로그인 상태가 아니면 종료
+    if current_user is None:
+        print('로그인 상태가 아닙니다.')
+        return None
+    # 로그아웃하면 현재 사용자를 None으로 반환
+    print(current_user['이름'], '님 로그아웃')
+    return None
+
+
 '''============= 사용자 메뉴 ============='''
 # 사용자 메뉴 전체 흐름
 def user_view(current_user):
