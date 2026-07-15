@@ -922,7 +922,7 @@ while True:
 
         # 일반 회원
         else:
-            user_menu(current_user)
+            urrent_user = user_view(current_user)
 
 
 
