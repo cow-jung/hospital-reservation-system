@@ -2099,10 +2099,10 @@ def payment_sales_manage(current_user):
             search_payment_by_patient()
 
         elif choice == '3':
-            show_payment_by_type()
+            show_department_sales()
 
         elif choice == '4':
-            show_daily_sales()
+            show_payment_by_type()
 
         elif choice == '5':
             show_monthly_sales()
@@ -2118,43 +2118,1241 @@ def payment_sales_manage_menu():
     print('\n======== 진료비/매출 조회 ========')
     print('1. 전체 진료비 조회')
     print('2. 환자별 진료비 조회')
-    print('3. 급여/비급여별 조회')
-    print('4. 일별 매출 조회')
+    print('3. 진료과별 진료비 조회')
+    print('4. 급여/비급여별 진료비 조회')
     print('5. 월별 매출 조회')
     print('0. 이전 메뉴')
     print('================================\n')
 
+# 전체 진료비 조회
 def show_all_payments():
-    print('\n======== 전체 진료비 조회 ========')
-    # 전체 진료비와 수납 상태 조회
+    # 전체 진료비 내역을 관리자에게 출력
+    payment_list = []
 
+    insured_total = 0   # 급여 전체 합계
+    uninsured_total = 0 # 비급여 전체 합계
+    total_sales = 0     # 총 매출
+    completed_count = 0 # 진료완료 건수
 
+    # 환자번호와 환자 이름 연결
+    patient_dict = {}
+
+    with open('user_500_added.csv','r', encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+
+        for user in reader:
+            patient_dict[user['환자번호']] = user['이름']
+
+    # 의료진번호와 의료진 정보 연결
+    doctor_dict = {}
+    with open('doctors.csv','r', encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+
+        for doctor in reader:
+            doctor_dict[doctor['의료진번호']] = {
+                '진료과': doctor['진료과'],
+                '이름': doctor['이름']
+            }
+    # 진료완료 내역 조회
+    with open('reservations_500_added.csv','r', encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        for reservation in reader:
+            # 매출은 실제 진료를 마친 데이터만 포함
+            if reservation['상태'] != '진료완료':
+                continue
+
+            patient_number = reservation['환자번호']
+            doctor_number = reservation['의료진번호']
+
+            patient_name = patient_dict.get(
+                patient_number,
+                '정보 없음'
+            )
+
+            doctor_info = doctor_dict.get(
+                doctor_number,
+                {
+                    '진료과': '정보 없음',
+                    '이름' : '정보 없음'
+                }
+            )
+
+            doctor_name = doctor_info['이름']
+            department = doctor_info['진료과']
+
+            #csv파일에서 읽은 금액은 문자열이라서 int로 변환
+            insured_fee = int(reservation['급여'])
+            uninsured_fee = int(reservation['비급여'])
+            total_fee = int(reservation['총금액'])
+
+            #합계 계산
+            insured_total += insured_fee
+            uninsured_total += uninsured_fee
+            total_sales += total_fee
+            completed_count += 1
+
+            payment_list.append({
+                '번호': completed_count,
+                '진료일자': reservation['예약날짜'],
+                '환자번호': patient_number,
+                '환자명': patient_name,
+                '진료과' : department,
+                '의료진' : doctor_name,
+                '진단명' : reservation['진단명'],
+                '급여' : insured_fee,
+                '비급여' : uninsured_fee,
+                '총금액' : total_fee
+            })
+    # 조회 결과가 없는 경우
+    if not payment_list:
+        console.print(
+            Panel(
+                '[bold red]조회할 진료비 내역이 없습니다.[/bold red]',
+                title='💰 전체 진료비 조회',
+                border_style='red'
+            )
+        )
+        return
+
+    # 최신 진료일 순으로 정렬
+    payment_list.sort(
+        key=lambda payment: (
+            payment['진료일자'],
+            payment['번호']
+        ),
+        reverse=True
+    )
+
+    # 매출 요약 카드
+    summary_table = Table.grid(
+        padding=(0, 2)
+    )
+
+    summary_table.add_column(
+        justify='left',
+        style='bold'
+    )
+
+    summary_table.add_column(
+        justify='right'
+    )
+
+    summary_table.add_row(
+        '🏥 진료 건수',
+        f'[bold cyan]{completed_count}건[/bold cyan]'
+    )
+
+    summary_table.add_row(
+        '🩺 급여 매출',
+        f'[green]{insured_total:,}원[/green]'
+    )
+
+    summary_table.add_row(
+        '💊 비급여 매출',
+        f'[yellow]{uninsured_total:,}원[/yellow]'
+    )
+
+    summary_table.add_row(
+        '💰 전체 매출',
+        f'[bold magenta]{total_sales:,}원[/bold magenta]'
+    )
+
+    # 페이지 설정
+    page_size = 10
+    current_page = 1
+
+    total_count = len(payment_list)
+
+    total_pages = (
+                          total_count + page_size - 1
+                  ) // page_size
+
+    while True:
+        # 현재 페이지에서 보여줄 데이터 범위
+        start_index = (current_page - 1) * page_size
+        end_index = start_index + page_size
+
+        page_data = payment_list[start_index:end_index]
+
+        # 현재 페이지 표 생성
+        payment_table = Table(
+            title=(
+                f'🧾 전체 진료비 내역 '
+                f'({current_page}/{total_pages} 페이지)'
+            ),
+            box=box.ROUNDED,
+            header_style='bold white',
+            border_style='bright_white',
+            show_lines=True,
+            padding=(0, 1),
+            expand=False
+        )
+
+        payment_table.add_column(
+            '번호',
+            justify='center',
+            style='cyan',
+            no_wrap=True,
+            width=4
+        )
+
+        payment_table.add_column(
+            '진료일',
+            justify='center',
+            no_wrap=True,
+            width=12
+        )
+
+        payment_table.add_column(
+            '환자 정보',
+            justify='center',
+            width=14
+        )
+
+        payment_table.add_column(
+            '진료 정보',
+            justify='center',
+            width=15
+        )
+
+        payment_table.add_column(
+            '진단명',
+            justify='center',
+            width=16
+        )
+
+        payment_table.add_column(
+            '급여',
+            justify='center',
+            style='green',
+            no_wrap=True,
+            width=11
+        )
+
+        payment_table.add_column(
+            '비급여',
+            justify='center',
+            style='yellow',
+            no_wrap=True,
+            width=11
+        )
+
+        payment_table.add_column(
+            '총금액',
+            justify='center',
+            style='bold magenta',
+            no_wrap=True,
+            width=12
+        )
+
+        # 현재 페이지 데이터만 표에 추가
+        for index, payment in enumerate(
+                page_data,
+                start=start_index + 1
+        ):
+            patient_text = (
+                f"[bold]{payment['환자명']}[/bold]\n"
+                f"[dim]{payment['환자번호']}[/dim]"
+            )
+
+            medical_text = (
+                f"[bold]{payment['진료과']}[/bold]\n"
+                f"[dim]{payment['의료진']}[/dim]"
+            )
+
+            payment_table.add_row(
+                str(index),
+                payment['진료일자'],
+                patient_text,
+                medical_text,
+                payment['진단명'],
+                f"{payment['급여']:,}원",
+                f"{payment['비급여']:,}원",
+                f"{payment['총금액']:,}원"
+            )
+
+        console.print()
+
+        console.print(
+            Panel(
+                summary_table,
+                title='[bold cyan]💰 전체 매출 요약[/bold cyan]',
+                border_style='cyan',
+                expand=False
+            )
+        )
+
+        console.print(payment_table)
+
+        first_number = start_index + 1
+        last_number = min(end_index, total_count)
+
+        console.print(
+            f'\n[cyan]전체 {total_count}건 중 '
+            f'{first_number}~{last_number}건을 표시합니다.[/cyan]'
+        )
+
+        console.print(
+            '[bold]N[/bold]. 다음 페이지  '
+            '[bold]P[/bold]. 이전 페이지  '
+            '[bold]F[/bold]. 첫 페이지  '
+            '[bold]L[/bold]. 마지막 페이지  '
+            '[bold]0[/bold]. 이전 메뉴'
+        )
+
+        page_choice = input(
+            '메뉴를 선택하세요 > '
+        ).strip().upper()
+
+        if page_choice == '0':
+            return
+
+        elif page_choice == 'N':
+            if current_page < total_pages:
+                current_page += 1
+            else:
+                console.print(
+                    '[yellow]마지막 페이지입니다.[/yellow]'
+                )
+
+        elif page_choice == 'P':
+            if current_page > 1:
+                current_page -= 1
+            else:
+                console.print(
+                    '[yellow]첫 페이지입니다.[/yellow]'
+                )
+
+        elif page_choice == 'F':
+            current_page = 1
+
+        elif page_choice == 'L':
+            current_page = total_pages
+
+        else:
+            console.print(
+                '[bold red]'
+                'N, P, F, L, 0 중 하나를 입력하세요.'
+                '[/bold red]'
+            )
+
+# 환자별 진료비 조회
 def search_payment_by_patient():
-    print('\n======== 환자별 진료비 조회 ========')
+    while True:
+        console.print(
+            '\n[bold cyan]======== 환자별 진료비 조회 ========[/bold cyan]'
+        )
 
-    # 환자 검색
-    # 해당 환자의 진료비 조회
+        search_value = input(
+            '환자 이름 또는 환자번호 일부를 입력하세요 '
+            '(0. 이전) : '
+        ).strip()
 
+        if search_value == '0':
+            return
 
+        if search_value == '':
+            console.print(
+                '[bold red]검색어를 입력하세요.[/bold red]\n'
+            )
+            continue
+
+        # 검색된 환자 목록
+        matched_patients = []
+
+        with open(
+            'user_500_added.csv',
+            'r',
+            encoding='utf-8-sig',
+            newline=''
+        ) as file:
+            reader = csv.DictReader(file)
+
+            for user in reader:
+                # 일반 사용자만 검색
+                if user['권한'] != 'user':
+                    continue
+
+                # 탈퇴 회원 제외
+                if user['회원상태'] != '정상':
+                    continue
+
+                patient_number = user['환자번호']
+                patient_name = user['이름']
+
+                # 이름 또는 환자번호 부분 검색
+                if (
+                    search_value in patient_name
+                    or search_value.upper() in patient_number.upper()
+                ):
+                    matched_patients.append(user)
+
+        if not matched_patients:
+            console.print(
+                '[bold red]일치하는 환자를 찾을 수 없습니다.[/bold red]\n'
+            )
+            continue
+
+        # 검색 결과가 너무 많으면 다시 검색
+        if len(matched_patients) > 20:
+            console.print(
+                f'[yellow]검색 결과가 {len(matched_patients)}명입니다.\n'
+                '이름이나 환자번호를 더 자세히 입력하세요.[/yellow]\n'
+            )
+            continue
+
+        # 환자 검색 결과 표
+        patient_table = Table(
+            title=f'👤 환자 검색 결과 ({len(matched_patients)}명)',
+            box=box.ROUNDED,
+            header_style='bold white',
+            border_style='bright_white',
+            show_lines=True,
+            expand=False
+        )
+
+        patient_table.add_column(
+            '번호',
+            justify='center',
+            style='cyan',
+            no_wrap=True
+        )
+
+        patient_table.add_column(
+            '환자번호',
+            justify='center',
+            no_wrap=True
+        )
+
+        patient_table.add_column(
+            '이름',
+            justify='center',
+            no_wrap=True
+        )
+
+        patient_table.add_column(
+            '생년월일',
+            justify='center',
+            no_wrap=True
+        )
+
+        patient_table.add_column(
+            '성별',
+            justify='center',
+            no_wrap=True
+        )
+
+        patient_table.add_column(
+            '연락처',
+            justify='center',
+            no_wrap=True
+        )
+
+        for index, patient in enumerate(
+            matched_patients,
+            start=1
+        ):
+            phone_number = patient['연락처']
+            phone_parts = phone_number.split('-')
+
+            if len(phone_parts) == 3:
+                masked_phone = (
+                    f'{phone_parts[0]}-****-{phone_parts[2]}'
+                )
+            else:
+                masked_phone = phone_number
+
+            patient_table.add_row(
+                str(index),
+                patient['환자번호'],
+                patient['이름'],
+                patient['생년월일'],
+                patient['성별'],
+                masked_phone
+            )
+
+        console.print(patient_table)
+
+        while True:
+            patient_choice = input(
+                '조회할 환자 번호를 선택하세요 '
+                '(0. 다시 검색) : '
+            ).strip()
+
+            if patient_choice == '0':
+                break
+
+            if not patient_choice.isdigit():
+                console.print(
+                    '[bold red]목록에 있는 숫자를 입력하세요.[/bold red]'
+                )
+                continue
+
+            patient_index = int(patient_choice) - 1
+
+            if not 0 <= patient_index < len(matched_patients):
+                console.print(
+                    '[bold red]목록에 있는 번호를 입력하세요.[/bold red]'
+                )
+                continue
+
+            selected_patient = matched_patients[patient_index]
+
+            show_selected_patient_payments(selected_patient)
+            return
+
+# 선택한 환자의 진료비 함수
+def show_selected_patient_payments(selected_patient):
+    patient_number = selected_patient['환자번호']
+    patient_name = selected_patient['이름']
+
+    # 의료진번호와 의료진 정보 연결
+    doctor_dict = {}
+
+    with open(
+        'doctors.csv',
+        'r',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        reader = csv.DictReader(file)
+
+        for doctor in reader:
+            doctor_dict[doctor['의료진번호']] = {
+                '이름': doctor['이름'],
+                '진료과': doctor['진료과']
+            }
+
+    payment_list = []
+
+    insured_total = 0
+    uninsured_total = 0
+    total_sales = 0
+
+    with open(
+        'reservations_500_added.csv',
+        'r',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        reader = csv.DictReader(file)
+
+        for reservation in reader:
+            if reservation['상태'] != '진료완료':
+                continue
+
+            if reservation['환자번호'] != patient_number:
+                continue
+
+            doctor_info = doctor_dict.get(
+                reservation['의료진번호'],
+                {
+                    '이름': '정보 없음',
+                    '진료과': '정보 없음'
+                }
+            )
+
+            insured_fee = int(reservation['급여'])
+            uninsured_fee = int(reservation['비급여'])
+            total_fee = int(reservation['총금액'])
+
+            insured_total += insured_fee
+            uninsured_total += uninsured_fee
+            total_sales += total_fee
+
+            payment_list.append({
+                '진료일자': reservation['예약날짜'],
+                '진료과': doctor_info['진료과'],
+                '의료진': doctor_info['이름'],
+                '진단명': reservation['진단명'],
+                '급여': insured_fee,
+                '비급여': uninsured_fee,
+                '총금액': total_fee
+            })
+
+    if not payment_list:
+        console.print(
+            Panel(
+                f'[bold red]{patient_name}님의 '
+                '진료완료 내역이 없습니다.[/bold red]',
+                title='👤 환자별 진료비 조회',
+                border_style='red'
+            )
+        )
+        return
+
+    # 최신 진료일부터 정렬
+    payment_list.sort(
+        key=lambda payment: payment['진료일자'],
+        reverse=True
+    )
+
+    summary_table = Table.grid(padding=(0, 2))
+    summary_table.add_column(style='bold')
+    summary_table.add_column(justify='right')
+
+    summary_table.add_row('환자명', patient_name)
+    summary_table.add_row('환자번호', patient_number)
+    summary_table.add_row(
+        '진료 건수',
+        f'{len(payment_list)}건'
+    )
+    summary_table.add_row(
+        '급여 합계',
+        f'[green]{insured_total:,}원[/green]'
+    )
+    summary_table.add_row(
+        '비급여 합계',
+        f'[yellow]{uninsured_total:,}원[/yellow]'
+    )
+    summary_table.add_row(
+        '총 진료비',
+        f'[bold magenta]{total_sales:,}원[/bold magenta]'
+    )
+
+    console.print(
+        Panel(
+            summary_table,
+            title='[bold cyan]👤 환자 진료비 요약[/bold cyan]',
+            border_style='cyan',
+            expand=False
+        )
+    )
+
+    payment_table = Table(
+        title='🧾 환자별 진료비 내역',
+        box=box.ROUNDED,
+        header_style='bold white',
+        border_style='bright_white',
+        show_lines=True,
+        expand=False
+    )
+
+    payment_table.add_column(
+        '번호',
+        justify='center',
+        style='cyan',
+        no_wrap=True
+    )
+
+    payment_table.add_column(
+        '진료일',
+        justify='center',
+        no_wrap=True
+    )
+
+    payment_table.add_column(
+        '진료 정보',
+        justify='center'
+    )
+
+    payment_table.add_column(
+        '진단명',
+        justify='center'
+    )
+
+    payment_table.add_column(
+        '급여',
+        justify='right',
+        style='green',
+        no_wrap=True
+    )
+
+    payment_table.add_column(
+        '비급여',
+        justify='right',
+        style='yellow',
+        no_wrap=True
+    )
+
+    payment_table.add_column(
+        '총금액',
+        justify='right',
+        style='bold magenta',
+        no_wrap=True
+    )
+
+    for index, payment in enumerate(payment_list, start=1):
+        medical_text = (
+            f"[bold]{payment['진료과']}[/bold]\n"
+            f"[dim]{payment['의료진']}[/dim]"
+        )
+
+        payment_table.add_row(
+            str(index),
+            payment['진료일자'],
+            medical_text,
+            payment['진단명'],
+            f"{payment['급여']:,}원",
+            f"{payment['비급여']:,}원",
+            f"{payment['총금액']:,}원"
+        )
+
+    console.print(payment_table)
+
+    input('\nEnter를 누르면 이전 메뉴로 돌아갑니다.')
+
+# 진료과별 매출 조회
+def show_department_sales():
+    console.print(
+        '\n[bold cyan]======== 진료과별 매출 조회 ========[/bold cyan]'
+    )
+
+    # 의료진번호와 진료과 연결
+    doctor_dict = {}
+
+    with open(
+        'doctors.csv',
+        'r',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        reader = csv.DictReader(file)
+
+        for doctor in reader:
+            doctor_dict[doctor['의료진번호']] = doctor['진료과']
+
+    # 진료과별 매출을 저장할 딕셔너리
+    department_sales = {}
+
+    total_insured = 0
+    total_uninsured = 0
+    total_sales = 0
+    total_count = 0
+
+    with open('reservations_500_added.csv', 'r', encoding='utf-8-sig', newline='') as file:
+        reader = csv.DictReader(file)
+
+        for reservation in reader:
+            # 진료완료인 데이터만 매출에 포함
+            if reservation['상태'] != '진료완료':
+                continue
+
+            doctor_number = reservation['의료진번호']
+
+            department = doctor_dict.get(
+                doctor_number,
+                '정보 없음'
+            )
+
+            insured_fee = int(reservation['급여'])
+            uninsured_fee = int(reservation['비급여'])
+            total_fee = int(reservation['총금액'])
+
+            # 해당 진료과가 처음 나오면 초기값 생성
+            if department not in department_sales:
+                department_sales[department] = {
+                    '진료건수': 0,
+                    '급여': 0,
+                    '비급여': 0,
+                    '총매출': 0
+                }
+
+            # 진료과별 합계
+            department_sales[department]['진료건수'] += 1
+            department_sales[department]['급여'] += insured_fee
+            department_sales[department]['비급여'] += uninsured_fee
+            department_sales[department]['총매출'] += total_fee
+
+            # 전체 합계
+            total_count += 1
+            total_insured += insured_fee
+            total_uninsured += uninsured_fee
+            total_sales += total_fee
+
+    if not department_sales:
+        console.print(
+            Panel(
+                '[bold red]조회할 진료과별 매출 내역이 없습니다.[/bold red]',
+                title='🏥 진료과별 매출 조회',
+                border_style='red'
+            )
+        )
+        return
+
+    # 총매출이 높은 진료과부터 정렬
+    sorted_departments = sorted(
+        department_sales.items(),
+        key=lambda item: item[1]['총매출'],
+        reverse=True
+    )
+
+    department_table = Table(
+        title='🏥 진료과별 매출 현황',
+        box=box.ROUNDED,
+        header_style='bold white',
+        border_style='bright_white',
+        show_lines=True,
+        padding=(0, 1),
+        expand=False
+    )
+
+    department_table.add_column(
+        '순위',
+        justify='center',
+        style='cyan',
+        no_wrap=True
+    )
+
+    department_table.add_column(
+        '진료과',
+        justify='center',
+        no_wrap=True
+    )
+
+    department_table.add_column(
+        '진료 건수',
+        justify='center',
+        no_wrap=True
+    )
+
+    department_table.add_column(
+        '급여 매출',
+        justify='right',
+        style='green',
+        no_wrap=True
+    )
+
+    department_table.add_column(
+        '비급여 매출',
+        justify='right',
+        style='yellow',
+        no_wrap=True
+    )
+
+    department_table.add_column(
+        '총매출',
+        justify='right',
+        style='bold magenta',
+        no_wrap=True
+    )
+
+    for rank, (department, sales) in enumerate(
+        sorted_departments,
+        start=1
+    ):
+        department_table.add_row(
+            str(rank),
+            department,
+            f"{sales['진료건수']}건",
+            f"{sales['급여']:,}원",
+            f"{sales['비급여']:,}원",
+            f"{sales['총매출']:,}원"
+        )
+
+    summary_table = Table.grid(padding=(0, 2))
+
+    summary_table.add_column(
+        justify='left',
+        style='bold'
+    )
+
+    summary_table.add_column(
+        justify='right'
+    )
+
+    summary_table.add_row(
+        '🏥 전체 진료 건수',
+        f'[bold cyan]{total_count}건[/bold cyan]'
+    )
+
+    summary_table.add_row(
+        '🩺 전체 급여 매출',
+        f'[green]{total_insured:,}원[/green]'
+    )
+
+    summary_table.add_row(
+        '💊 전체 비급여 매출',
+        f'[yellow]{total_uninsured:,}원[/yellow]'
+    )
+
+    summary_table.add_row(
+        '💰 전체 매출',
+        f'[bold magenta]{total_sales:,}원[/bold magenta]'
+    )
+
+    console.print()
+
+    console.print(
+        Panel(
+            summary_table,
+            title='[bold cyan]💰 진료과 매출 요약[/bold cyan]',
+            border_style='cyan',
+            expand=False
+        )
+    )
+
+    console.print(department_table)
+
+    input('\nEnter를 누르면 이전 메뉴로 돌아갑니다.')
+
+# 급여/비급여별 조회
 def show_payment_by_type():
-    print('\n======== 급여/비급여별 조회 ========')
+    console.print('\n[bold cyan]======== 급여/비급여별 조회 ========[/bold cyan]')
 
-    # 급여 항목 조회
-    # 비급여 항목 조회
+    insured_total = 0
+    uninsured_total = 0
 
+    insured_count = 0
+    uninsured_count = 0
+    completed_count = 0
 
-def show_daily_sales():
-    print('\n======== 일별 매출 조회 ========')
+    with open('reservations_500_added.csv', 'r', encoding='utf-8-sig', newline='') as file:
+        reader = csv.DictReader(file)
 
-    # 조회 날짜 입력
-    # 해당 날짜의 수납 완료 금액 합계 조회
+        for reservation in reader:
+            if reservation['상태'] != '진료완료':
+                continue
 
+            insured_fee = int(reservation['급여'])
+            uninsured_fee = int(reservation['비급여'])
 
+            insured_total += insured_fee
+            uninsured_total += uninsured_fee
+            completed_count += 1
+
+            if insured_fee > 0:
+                insured_count += 1
+
+            if uninsured_fee > 0:
+                uninsured_count += 1
+
+    if completed_count == 0:
+        console.print('[bold red]조회할 매출 내역이 없습니다.[/bold red]\n')
+        return
+
+    total_sales = insured_total + uninsured_total
+
+    payment_table = Table(
+        title='💰 급여·비급여 매출 현황',
+        box=box.ROUNDED,
+        header_style='bold white on blue',
+        border_style='bright_blue'
+    )
+
+    payment_table.add_column('구분', justify='center')
+    payment_table.add_column('포함 건수', justify='center')
+    payment_table.add_column('매출 금액', justify='right')
+
+    payment_table.add_row(
+        '급여',
+        f'{insured_count}건',
+        f'[green]{insured_total:,}원[/green]'
+    )
+
+    payment_table.add_row(
+        '비급여',
+        f'{uninsured_count}건',
+        f'[yellow]{uninsured_total:,}원[/yellow]'
+    )
+
+    payment_table.add_row(
+        '전체',
+        f'{completed_count}건',
+        f'[bold magenta]{total_sales:,}원[/bold magenta]'
+    )
+
+    console.print(payment_table)
+
+    summary = (
+        f'급여 매출 비율   : '
+        f'{insured_total / total_sales * 100:.1f}%\n'
+        f'비급여 매출 비율 : '
+        f'{uninsured_total / total_sales * 100:.1f}%'
+    )
+
+    console.print(
+        Panel(
+            summary,
+            title='📊 매출 비율',
+            border_style='cyan',
+            expand=False
+        )
+    )
+
+    input('\nEnter를 누르면 이전 메뉴로 돌아갑니다.')
+
+# 월별 매출 조회
 def show_monthly_sales():
-    print('\n======== 월별 매출 조회 ========')
+    console.print('\n[bold cyan]======== 월별 매출 조회 ========[/bold cyan]')
 
-    # 조회 연도와 월 입력
-    # 해당 월의 수납 완료 금액 합계 조회
+    search_year = input('조회할 연도를 입력하세요 (YYYY / 0. 이전) : ').strip()
+
+    if search_year == '0':
+        return
+
+    search_month = input(
+        '조회할 월을 입력하세요 (1~12) : '
+    ).strip()
+
+    if (
+        not search_year.isdigit()
+        or len(search_year) != 4
+        or not search_month.isdigit()
+        or not 1 <= int(search_month) <= 12
+    ):
+        console.print(
+            '[bold red]연도와 월을 올바르게 입력하세요.[/bold red]\n'
+        )
+        return
+
+    search_month = search_month.zfill(2)
+    search_year_month = f'{search_year}-{search_month}'
+
+    # 날짜별 매출 저장
+    daily_sales_dict = {}
+
+    monthly_insured_total = 0
+    monthly_uninsured_total = 0
+    monthly_total_sales = 0
+    monthly_count = 0
+
+    with open('reservations_with_fee_breakdown.csv', 'r', encoding='utf-8-sig', newline='')as file:
+        reader = csv.DictReader(file)
+
+        for reservation in reader:
+            if reservation['상태'] != '진료완료':
+                continue
+
+            if not reservation['예약날짜'].startswith(search_year_month):
+                continue
+
+            reservation_date = reservation['예약날짜']
+
+            insured_fee = int(reservation['급여'])
+            uninsured_fee = int(reservation['비급여'])
+            total_fee = int(reservation['총금액'])
+
+            monthly_insured_total += insured_fee
+            monthly_uninsured_total += uninsured_fee
+            monthly_total_sales += total_fee
+            monthly_count += 1
+
+            if reservation_date not in daily_sales_dict:
+                daily_sales_dict[reservation_date] = {
+                    '건수': 0,
+                    '급여': 0,
+                    '비급여': 0,
+                    '총금액': 0
+                }
+
+            daily_sales_dict[reservation_date]['건수'] += 1
+            daily_sales_dict[reservation_date]['급여'] += insured_fee
+            daily_sales_dict[reservation_date]['비급여'] += uninsured_fee
+            daily_sales_dict[reservation_date]['총금액'] += total_fee
+
+    if monthly_count == 0:
+        console.print('[bold red]해당 월의 매출 내역이 없습니다.[/bold red]\n')
+        return
+
+    monthly_table = Table(
+        title=f'📆 {search_year}년 {search_month}월 매출',
+        box=box.ROUNDED,
+        header_style='bold white on blue',
+        border_style='bright_blue',
+        show_lines=True
+    )
+
+    monthly_table.add_column('날짜', justify='center')
+    monthly_table.add_column('진료 건수', justify='center')
+    monthly_table.add_column('급여', justify='right', style='green')
+    monthly_table.add_column('비급여', justify='right', style='yellow')
+    monthly_table.add_column(
+        '총매출',
+        justify='right',
+        style='bold magenta'
+    )
+
+    for date in sorted(daily_sales_dict):
+        daily_data = daily_sales_dict[date]
+
+        monthly_table.add_row(
+            date,
+            f"{daily_data['건수']}건",
+            f"{daily_data['급여']:,}원",
+            f"{daily_data['비급여']:,}원",
+            f"{daily_data['총금액']:,}원"
+        )
+
+    console.print(monthly_table)
+
+    summary_table = Table.grid(padding=(0, 2))
+    summary_table.add_column(style='bold')
+    summary_table.add_column(justify='right')
+
+    summary_table.add_row(
+        '월 진료 건수',
+        f'{monthly_count}건'
+    )
+    summary_table.add_row(
+        '급여 합계',
+        f'[green]{monthly_insured_total:,}원[/green]'
+    )
+    summary_table.add_row(
+        '비급여 합계',
+        f'[yellow]{monthly_uninsured_total:,}원[/yellow]'
+    )
+    summary_table.add_row(
+        '월 총매출',
+        f'[bold magenta]{monthly_total_sales:,}원[/bold magenta]'
+    )
+
+    console.print(
+        Panel(
+            summary_table,
+            title='💰 월별 매출 요약',
+            border_style='cyan',
+            expand=False
+        )
+    )
+    input('\nEnter를 누르면 이전 메뉴로 돌아갑니다.')
+
+
+# 일별 매출 조회
+'''def show_daily_sales():
+    console.print('\n[bold cyan]======== 일별 매출 조회 ========[/bold cyan]')
+
+    search_date = input(
+        '조회할 날짜를 입력하세요 (YYYY-MM-DD / 0. 이전) : '
+    ).strip()
+
+    if search_date == '0':
+        return
+
+    try:
+        datetime.datetime.strptime(
+            search_date,
+            '%Y-%m-%d'
+        )
+
+    except ValueError:
+        console.print(
+            '[bold red]날짜 형식은 YYYY-MM-DD로 입력하세요.[/bold red]\n'
+        )
+        return
+
+    patient_dict = {}
+
+    with open(
+        'user.csv',
+        'r',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        reader = csv.DictReader(file)
+
+        for user in reader:
+            patient_dict[user['환자번호']] = user['이름']
+
+    daily_list = []
+
+    insured_total = 0
+    uninsured_total = 0
+    total_sales = 0
+
+    with open(
+        'reservations_with_fee_breakdown.csv',
+        'r',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        reader = csv.DictReader(file)
+
+        for reservation in reader:
+            if (
+                reservation['상태'] != '진료완료'
+                or reservation['예약날짜'] != search_date
+            ):
+                continue
+
+            insured_fee = int(reservation['급여'])
+            uninsured_fee = int(reservation['비급여'])
+            total_fee = int(reservation['총금액'])
+
+            insured_total += insured_fee
+            uninsured_total += uninsured_fee
+            total_sales += total_fee
+
+            daily_list.append({
+                '환자번호': reservation['환자번호'],
+                '환자명': patient_dict.get(
+                    reservation['환자번호'],
+                    '정보 없음'
+                ),
+                '진단명': reservation['진단명'],
+                '급여': insured_fee,
+                '비급여': uninsured_fee,
+                '총금액': total_fee
+            })
+
+    if not daily_list:
+        console.print(
+            '[bold red]해당 날짜의 매출 내역이 없습니다.[/bold red]\n'
+        )
+        return
+
+    daily_table = Table(
+        title=f'📅 {search_date} 일별 매출',
+        box=box.ROUNDED,
+        header_style='bold white on blue',
+        border_style='bright_blue',
+        show_lines=True
+    )
+
+    daily_table.add_column('번호', justify='center')
+    daily_table.add_column('환자번호', justify='center')
+    daily_table.add_column('환자명', justify='center')
+    daily_table.add_column('진단명', justify='center')
+    daily_table.add_column('급여', justify='right', style='green')
+    daily_table.add_column('비급여', justify='right', style='yellow')
+    daily_table.add_column(
+        '총금액',
+        justify='right',
+        style='bold magenta'
+    )
+
+    for index, payment in enumerate(daily_list, start=1):
+        daily_table.add_row(
+            str(index),
+            payment['환자번호'],
+            payment['환자명'],
+            payment['진단명'],
+            f"{payment['급여']:,}원",
+            f"{payment['비급여']:,}원",
+            f"{payment['총금액']:,}원"
+        )
+
+    console.print(daily_table)
+
+    summary_table = Table.grid(padding=(0, 2))
+    summary_table.add_column(style='bold')
+    summary_table.add_column(justify='right')
+
+    summary_table.add_row('진료 건수', f'{len(daily_list)}건')
+    summary_table.add_row(
+        '급여 매출',
+        f'[green]{insured_total:,}원[/green]'
+    )
+    summary_table.add_row(
+        '비급여 매출',
+        f'[yellow]{uninsured_total:,}원[/yellow]'
+    )
+    summary_table.add_row(
+        '일일 총매출',
+        f'[bold magenta]{total_sales:,}원[/bold magenta]'
+    )
+
+    console.print(
+        Panel(
+            summary_table,
+            title='💰 일별 매출 요약',
+            border_style='cyan',
+            expand=False
+        )
+    )
+
+    input('\nEnter를 누르면 이전 메뉴로 돌아갑니다.')'''
+
 
 
 
