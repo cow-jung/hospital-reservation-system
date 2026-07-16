@@ -1020,30 +1020,30 @@ def show_my_reservations(current_user):
 
 # 내 예약 변경
 def update_reservations_csv(reservations):
-    """수정된 전체 예약 목록을 CSV 파일에 덮어씁니다."""
+    # 수정된 전체 예약 목록을 CSV 파일에 덮어씀
     import os
     import csv
 
     file_path = 'reservations_total_only.csv'
 
     if reservations:
-        # .keys(): 딕셔너리에서 값(value)을 제외하고 이름표(key)들만 쏙 뽑아옵니다.
-        # list(): 뽑아온 키들을 리스트 형태로 변환합니다. (예: ['예약번호', '환자번호', ...])
+        # .keys(): 딕셔너리에서 값(value)을 제외하고 이름표(key)만 가져옴
+        # list(): 뽑아온 키들을 리스트 형태로 변환 (예: ['예약번호', '환자번호', ...])
         fieldnames = list(reservations[0].keys())
     else:
         fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
 
-    # 'w' 모드(Write): 파일의 기존 내용을 싹 지우고 처음부터 새로 씁니다. (덮어쓰기)
+    # 'w' 모드(Write): 파일의 기존 내용을 싹 지우고 처음부터 새로 작성 (덮어쓰기)
     with open(file_path, 'w', encoding='utf-8-sig', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
 
-        # .writerows(): writerow(단수)와 달리, 리스트 안에 있는 여러 줄의 데이터를 한 번에 파일에 씁니다.
+        # .writerows(): writerow(단수)와 달리, 리스트 안에 있는 여러 줄의 데이터를 한 번에 파일에 작성
         writer.writerows(reservations)
 
 
 def modify_reservation(current_user):
-    """내 예약 정보를 확인하고 날짜와 시간을 수정합니다."""
+    # 내 예약 정보를 확인하고 날짜와 시간을 수정
     reservations = load_reservations()
     doctors = load_doctors()
     patient_id = current_user['환자번호']
@@ -1093,7 +1093,7 @@ def modify_reservation(current_user):
     doctor = doctor_dict.get(target_reservation['의료진번호'])
     print(f"\n[{doctor['진료과']} {doctor['이름']} 원장] 예약 변경을 시작합니다.")
 
-    # 4. 새로운 날짜와 시간 선택 (기존 블록 재사용)
+    # 4. 새로운 날짜와 시간 선택
     while True:
         new_date = select_date(doctor, reservations)
         if new_date is None:
@@ -1116,11 +1116,11 @@ def modify_reservation(current_user):
         confirm = input("\n위 일정으로 예약을 수정하시겠습니까? (Y/N) > ").strip().upper()
 
         if confirm == 'Y':
-            # 전체 reservations 리스트 안에 있는 타겟 예약의 데이터만 새롭게 바꿉니다.
+            # 전체 reservations 리스트 안에 있는 타겟 예약의 데이터만 새롭게 변경
             target_reservation['예약날짜'] = new_date
             target_reservation['예약시간'] = new_time
 
-            # 변경된 전체 리스트를 CSV에 덮어씁니다.
+            # 변경된 전체 리스트를 CSV에 덮어씀
             update_reservations_csv(reservations)
 
             print("\n예약 수정이 정상적으로 완료되었습니다. 이전 메뉴로 돌아갑니다.")
