@@ -610,11 +610,11 @@ def medical_history(current_user):
         if choice == '1':
             show_medical_history(current_user)
 
-        elif choice == '2':
-            show_medical_history_detail(current_user)
+        #elif choice == '2':
+        #    show_medical_history_detail(current_user)
 
-        elif choice == '3':
-            show_medical_fee(current_user)
+        #elif choice == '3':
+        #    show_medical_fee(current_user)
 
         elif choice == '0':
             break
@@ -626,8 +626,8 @@ def medical_history(current_user):
 def medical_history_menu():
     print('\n======== 진료 이력 조회 ========')
     print('1. 전체 진료 이력 조회')
-    print('2. 진료 이력 상세 조회')
-    print('3. 진료비 확인')
+    #print('2. 진료 이력 상세 조회')
+    #print('3. 진료비 확인')
     print('0. 이전 메뉴')
     print('===============================\n')
 
@@ -637,8 +637,12 @@ def show_medical_history(current_user):
     # 해당 환자의 진료 이력 전체 조회
     # 진료일자 / 진료과 / 의료진 / 진료상태 출력
 
-    medical_history_list = []
-    with open('reservations_total_only.csv', 'r', encoding='utf-8-sig',newline='') as file:
+    # 상세 조회에 사용할 원본 딕셔너리 목록
+    medical_history_data = []
+    # tabulate 출력에 사용할 목록
+    medical_history_table = []
+
+    with open('reservations_with_fee_breakdown.csv', 'r', encoding='utf-8-sig',newline='') as file:
         reader = csv.DictReader(file)
 
         for row in reader:
@@ -651,8 +655,23 @@ def show_medical_history(current_user):
                     doctor_name = '정보없음'
                     department = '정보없음'
 
-                medical_history_list.append([
-                    len(medical_history_list)+1,
+                # 상세 조회에서 사용하기 위해 필요한 정보 추가
+                history = {
+                    '예약번호': row['예약번호'],
+                    '진료과': department,
+                    '의료진': doctor_name,
+                    '진료날짜': row['예약날짜'],
+                    '진료시간': row['예약시간'],
+                    '진단명': row['진단명'],
+                    '급여': row['급여'],
+                    '비급여': row['비급여'],
+                    '총금액': row['총금액'],
+                    '상태': row['상태']
+                }
+                medical_history_data.append(history)
+
+                medical_history_table.append([
+                    len(medical_history_table)+1,
                     row['예약번호'],
                     department,
                     doctor_name,
@@ -661,10 +680,13 @@ def show_medical_history(current_user):
                     f"{int(row['총금액']):,}원",
                     row['상태']
                 ])
+        if not medical_history_data:
+            print('\n진료 이력이 없습니다.\n')
+            return
+        while True:
 
-        if medical_history_list:
             table = tabulate(
-                medical_history_list,
+                medical_history_table,
                 headers=[
                     '번호',
                     '진료과',
@@ -690,8 +712,41 @@ def show_medical_history(current_user):
             print(table)
             print('=' * table_width)
 
-        else:
-            print('진료 이력이 없습니다.\n')
+            history_menu = input('조회할 번호를 입력하세요 (0. 이전) : ')
+
+            if history_menu == '0':
+                return
+
+            # 빈 값 또는 숫자가 아닌 값 검사
+            if not history_menu.isdigit():
+                print('목록에 있는 숫자를 입력하세요.\n')
+                continue
+
+            history_index = int(history_menu) - 1
+
+            if not 0 <= history_index < len(medical_history_data):
+                print('목록에 있는 번호를 입력하세요. \n')
+                continue
+
+            selected_history = medical_history_data[history_index]
+            insured_fee = int(selected_history['급여'])
+            uninsured_fee = int(selected_history['비급여'])
+            total_fee = int(selected_history['총금액'])
+
+            print('\n====== 진료 이력 상세 ======')
+            print(f'예약번호 : {selected_history['예약번호']}')
+            print(f'진료일자 : {selected_history['진료날짜']}')
+            print(f'진료시간 : {selected_history['진료시간']}')
+            print(f'진료과 : {selected_history['진료과']}')
+            print(f'의료진 : {selected_history['의료진']}')
+            print(f'진단명 : {selected_history['진단명']}')
+            print(f'진단상태 : {selected_history['상태']}')
+            print('-' * 34)
+            print(f'급여 : {insured_fee:,}원')
+            print(f'비급여 : {uninsured_fee:,}원')
+            print('-' * 34)
+            print(f'총금액 : {total_fee:,}원')
+            print('================================\n')
 
 # 의료진 찾기
 def find_doctor_by_number(doctor_number):
