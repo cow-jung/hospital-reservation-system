@@ -1392,7 +1392,7 @@ def show_all_reservations():
 
     # CSV 파일 읽기
     with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
-        reader = list(csv.reader(file))
+        reader = list(csv.DictReader(file))
 
     # 표의 가로 구분선
     line = "=" * 125
@@ -1418,17 +1418,17 @@ def show_all_reservations():
     print(line)
 
     # 예약 정보 출력
-    for row in reader[1:]:
+    for row in reader:
         print(
-            pad(row[0], 18),
-            pad(row[1], 13),
-            pad(row[2], 12),
-            pad(row[3], 16),
-            pad(row[4], 6),
-            pad(f"{int(row[5]):,}", 11, 'right') + ' ',
-            pad(f"{int(row[6]):,}", 11, 'right') + ' ',
-            pad(f"{int(row[7]):,}", 11, 'right') + '      ',
-            pad(row[8], 5)
+            pad(row["예약번호"], 18),
+            pad(row["환자번호"], 13),
+            pad(row["의료진번호"], 12),
+            pad(row["예약날짜"], 16),
+            pad(row["예약시간"], 6),
+            pad(f"{int(row['급여']):,}", 11, 'right') + ' ',
+            pad(f"{int(row['비급여']):,}", 11, 'right') + ' ',
+            pad(f"{int(row['총금액']):,}", 11, 'right') + '      ',
+            pad(row["상태"], 5)
         )
 
     # 표의 마지막 구분선
