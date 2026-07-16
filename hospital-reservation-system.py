@@ -1404,13 +1404,13 @@ def show_all_reservations():
 
     # 헤더 출력
     print(
-        pad("   예약번호", 21),
-        pad("환자번호", 14),
+        pad("   예약번호", 20),
+        pad("환자번호", 13),
         pad("의료진번호", 17),
-        pad("예약날짜", 16),
-        pad("예약시간", 15),
+        pad("예약날짜", 15),
+        pad("예약시간", 14),
         pad("급여", 12),
-        pad("비급여", 14),
+        pad("비급여", 13),
         pad("총금액", 14),
         pad("상태", 10)
     )
@@ -1455,13 +1455,13 @@ def search_reservation_by_patient():
 
     # 헤더 출력
     print(
-        pad("   예약번호", 21),
-        pad("환자번호", 14),
+        pad("   예약번호", 20),
+        pad("환자번호", 13),
         pad("의료진번호", 17),
-        pad("예약날짜", 16),
-        pad("예약시간", 15),
+        pad("예약날짜", 15),
+        pad("예약시간", 14),
         pad("급여", 12),
-        pad("비급여", 14),
+        pad("비급여", 13),
         pad("총금액", 14),
         pad("상태", 10)
     )
@@ -1673,10 +1673,54 @@ def department_doctor_manage_menu():
     print('0. 이전 메뉴')
     print('==================================\n')
 
+# 전체 진료과/의료진 조회
 def show_all_doctors():
-    print('\n======== 전체 의료진 조회 ========')
+    import csv
+    from wcwidth import wcswidth
 
-    # doctors.csv 전체 의료진 조회
+    # CSV 파일 읽기
+    with open("doctors.csv", "r", encoding="utf-8-sig") as file:
+        reader = list(csv.reader(file))
+
+    # 표의 가로 구분선
+    line = "=" * 125
+
+    # 제목 출력
+    print(line)
+    print("전체 진료과/의료진 조회".center(len(line)))
+    print(line)
+
+    # 헤더 출력
+    print(
+        pad("의료진번호", 20),
+        pad("이름", 13),
+        pad("진료과", 17),
+        pad("진료실번호", 15),
+        pad("진료과전화번호", 14),
+        pad("진료요일", 12),
+        pad("진료시작시간", 13),
+        pad("진료종료시간", 14),
+        pad("근무상태", 10)
+    )
+
+    print(line)
+
+    # 진료과/의료진 정보 출력
+    for row in reader[1:]:
+        print(
+            pad(row[0], 18),
+            pad(row[1], 13),
+            pad(row[2], 12),
+            pad(row[3], 10, "right"),
+            pad(row[4], 15, "right"),
+            pad(row[5], 11, "right"),
+            pad(row[6], 11, "right"),
+            pad(row[7], 11, "right"),
+            pad(row[8], 20, "right")
+        )
+
+    # 표의 마지막 구분선
+    print(line)
 
 
 def show_doctors_by_department_admin():
