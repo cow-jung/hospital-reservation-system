@@ -1,4 +1,4 @@
-#테스트 메세지
+#테스트 메시지
 '''
 완료: ✅
 진행중: 🔥
@@ -488,11 +488,11 @@ def reservation(current_user):
 
 # 예약 방법 메뉴 출력
 def reservation_menu():
-    print('\n======== 예약하기 ========')
+    print('\n========== 예약하기 ==========')
     print('1. 진료과로 예약')
     print('2. 과거 진료 이력으로 예약')
     print('\n0. 이전 메뉴')
-    print('==========================\n')
+    print('============================\n')
 
 # 진료과로 예약
 def reserve_by_department(current_user):
@@ -525,11 +525,11 @@ def reserve_by_department(current_user):
         # 날짜와 시간을 모두 정상적으로 선택했다면 루프 탈출
         break
 
-    print(f"\n ============ [예약 상세] ============")
+    print(f"\n========================= [예약 상세] =======================")
     print(f"예약날짜: {date_str}")
     print(f"예약시간: {time_str}")
     print(f"진료과 및 의료진 이름: {doctor['진료과']} {doctor['이름']}")
-    print(f"====================================")
+    print(f"===========================================================")
 
     while True:
         confirm = input("\n예약을 확정하시겠습니까? (Y/N) > ").strip().upper()
@@ -567,7 +567,7 @@ def reserve_by_history(current_user):
     # 의료진 번호로 의료진 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n================ [{current_user['이름']}]님의 진료 이력 ================")
+    print(f"\n===================== [{current_user['이름']}]님의 진료 이력 =====================")
 
     # 출력 및 선택을 위해 리스트에 저장
     display_list = []
@@ -585,7 +585,7 @@ def reserve_by_history(current_user):
             print(f"{index}. 진료과: {department_name} / 의료진: {doctor_info_name} / 진료 날짜: {date}")
 
     print("\n0. 이전 메뉴")
-    print("=====================================================")
+    print("==============================================================")
 
     # 4. 예약할 항목 선택
     while True:
@@ -627,11 +627,11 @@ def reserve_by_history(current_user):
         break
 
     # 예약 상세 확인 및 저장 로직
-    print(f"\n ============ [예약 상세] ============")
+    print(f"\n========================= [예약 상세] =======================")
     print(f"예약날짜: {date_str}")
     print(f"예약시간: {time_str}")
     print(f"진료과 및 의료진 이름: {selected_doctor['진료과']} {selected_doctor['이름']}")
-    print(f"====================================")
+    print(f"===========================================================")
 
     while True:
         confirm = input("\n예약을 확정하시겠습니까? (Y/N) > ").strip().upper()
@@ -677,7 +677,7 @@ def select_department(doctors):
     # sorted(): 데이터를 가나다순(또는 오름차순)으로 정렬
     departments = sorted(list(set(doctor_info['진료과'] for doctor_info in doctors)))
 
-    print("\n======== 진료과 선택 ========")
+    print("\n======== 진료과 선택 =========")
     # enumerate(리스트, 1): 리스트의 내용물을 꺼낼 때 1부터 시작하는 순서 번호(index)도 같이 꺼냄
     for index, department_name in enumerate(departments, 1):
         print(f"{index}. {department_name}")
@@ -711,12 +711,12 @@ def select_doctor(doctors, department):
         print("현재 해당 진료과에 예약 가능한 의료진이 없습니다.")
         return None
 
-    print(f"\n==================== {department} 의료진 선택 ====================")
+    print(f"\n======================= {department} 의료진 선택 ========================")
     for index, doctor_info in enumerate(available_doctors, 1):
         print(
             f"{index}. {doctor_info['이름']} (진료요일: {doctor_info['진료요일']} / 진료시간: {doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']})")
     print("\n0. 이전 메뉴")
-    print(f"========================================================")
+    print(f"==============================================================")
 
     while True:
         try:
@@ -787,8 +787,8 @@ def print_calendar(year, month, doctor, reservations):
     # 해당 월의 달력을 출력하고 예약 마감 날짜를 표시
     # calendar.monthcalendar(): 해당 월의 달력을 1주 단위로 묶어서 리스트 형태로 반환
     month_calendar = calendar.monthcalendar(year, month)
-    print(f"\n======== {year}년 {month}월 예약 달력 ========")
-    print("월    화    수    목   금")
+    print(f"\n===================== {year}년 {month}월 예약 달력 =====================")
+    print("                    월    화    수   목   금")
 
     fully_booked_dates = []
 
@@ -809,10 +809,10 @@ def print_calendar(year, month, doctor, reservations):
                     week_string += f" {day:2d}  "
 
         if week_string.strip():
-            print(week_string)
+            print(f'                   {week_string}')
 
-    print("\n * [ ]: 예약 불가능한 날짜")
-    print(f"===================================")
+    print("\n                    * [ ]: 예약 불가능한 날짜")
+    print(f"=============================================================")
 
 def select_date(doctor, reservations):
     # 예약할 날짜를 달력에서 선택
@@ -875,11 +875,11 @@ def select_time(doctor, date_str, reservations):
     # 해당 날짜에 예약 가능한 시간대를 선택
     available_times = get_available_times(doctor, date_str, reservations)
 
-    print(f"\n=========== {date_str} 예약 가능 시간 ===========")
+    print(f"\n================== {date_str} 예약 가능 시간 ==================")
     for index, t in enumerate(available_times, 1):
-        print(f"{index}. {t}")
-    print("\n0. 이전 메뉴")
-    print(f"==============================================")
+        print(f"                         {index}. {t}")
+    print("\n                         0. 이전 메뉴")
+    print(f"============================================================")
 
     while True:
         try:
@@ -944,10 +944,10 @@ def save_reservation(patient_id, doctor, date_str, time_str, reservations):
             writer.writeheader()  # 파일이 없어서 새로 만들었다면 맨 윗줄(헤더)을 작성
         writer.writerow(new_reservation)  # 실제 데이터를 한 줄 작성
 
-    print(f"\n ============ [예약 완료] ============")
+    print(f"\n========================= [예약 완료] =======================")
     print(f"예약이 아래와 같이 완료되었습니다.")
     print(f"발급된 예약번호: {new_reservation_id}")
-    print(f"====================================")
+    print(f"===========================================================")
     print()
 
 '''============= 내 예약 관리 ============='''
@@ -1392,7 +1392,7 @@ def show_all_reservations():
 
     # CSV 파일 읽기
     with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
-        reader = list(csv.reader(file))
+        reader = list(csv.DictReader(file))
 
     # 표의 가로 구분선
     line = "=" * 125
@@ -1418,17 +1418,17 @@ def show_all_reservations():
     print(line)
 
     # 예약 정보 출력
-    for row in reader[1:]:
+    for row in reader:
         print(
-            pad(row[0], 18),
-            pad(row[1], 13),
-            pad(row[2], 12),
-            pad(row[3], 16),
-            pad(row[4], 6),
-            pad(f"{int(row[5]):,}", 11, 'right') + ' ',
-            pad(f"{int(row[6]):,}", 11, 'right') + ' ',
-            pad(f"{int(row[7]):,}", 11, 'right') + '      ',
-            pad(row[8], 5)
+            pad(row["예약번호"], 18),
+            pad(row["환자번호"], 13),
+            pad(row["의료진번호"], 12),
+            pad(row["예약날짜"], 16),
+            pad(row["예약시간"], 6),
+            pad(f"{int(row['급여']):,}", 11, 'right') + ' ',
+            pad(f"{int(row['비급여']):,}", 11, 'right') + ' ',
+            pad(f"{int(row['총금액']):,}", 11, 'right') + '      ',
+            pad(row["상태"], 5)
         )
 
     # 표의 마지막 구분선
@@ -1867,7 +1867,6 @@ def payment_sales_manage_menu():
 
 def show_all_payments():
     print('\n======== 전체 진료비 조회 ========')
-
     # 전체 진료비와 수납 상태 조회
 
 
