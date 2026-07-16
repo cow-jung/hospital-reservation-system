@@ -1,4 +1,4 @@
-#테스트 메세지
+#테스트 메시지
 '''
 완료: ✅
 진행중: 🔥
@@ -711,7 +711,7 @@ def select_doctor(doctors, department):
         print("현재 해당 진료과에 예약 가능한 의료진이 없습니다.")
         return None
 
-    print(f"\n==================== {department} 의료진 선택 ====================")
+    print(f"\n======================= {department} 의료진 선택 ========================")
     for index, doctor_info in enumerate(available_doctors, 1):
         print(
             f"{index}. {doctor_info['이름']} (진료요일: {doctor_info['진료요일']} / 진료시간: {doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']})")
