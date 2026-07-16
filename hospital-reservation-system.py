@@ -1058,13 +1058,14 @@ def modify_reservation(current_user):
     # 의사 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n======== [{current_user['이름']}]님의 예약 수정 ========")
+    print(f"\n======================== [{current_user['이름']}]님의 예약 수정 ========================")
     for index, record in enumerate(active_reservations, 1):
         doctor_info = doctor_dict.get(record['의료진번호'])
         if doctor_info:
             print(
                 f"{index}. [예약번호: {record['예약번호']}] {doctor_info['진료과']} {doctor_info['이름']} 원장 / 기존 예약: {record['예약날짜']} {record['예약시간']}")
-    print("0. 이전 메뉴로 돌아가기")
+    print("\n0. 이전 메뉴로 돌아가기")
+    print(f"====================================================================")
 
     # 2. 수정할 예약 선택
     while True:
@@ -1106,10 +1107,10 @@ def modify_reservation(current_user):
         break
 
     # 5. 변경 상세 확인 및 덮어쓰기
-    print(f"\n ======== [예약 수정 상세] ========")
+    print(f"\n====================== [예약 수정 상세] ======================")
     print(f"기존 예약: {target_reservation['예약날짜']} {target_reservation['예약시간']}")
     print(f"변경 예약: {new_date} {new_time}")
-    print(f"================================")
+    print(f"===========================================================")
 
     while True:
         confirm = input("\n위 일정으로 예약을 수정하시겠습니까? (Y/N) > ").strip().upper()
