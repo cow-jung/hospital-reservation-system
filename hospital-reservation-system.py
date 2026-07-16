@@ -38,6 +38,7 @@ from wcwidth import wcswidth
 import calendar
 import datetime
 import os
+os.system("") # cmd에서 색을 나타내기 위한 새로고침 기능
 
 def show_login_menu(): # 로그인 첫 메뉴
     print('======== 🏥 병원 예약 관리 시스템 로그인 ========')
@@ -791,6 +792,8 @@ def print_calendar(year, month, doctor, reservations):
     print("                    월    화    수   목   금")
 
     fully_booked_dates = []
+    RED = '\033[91m'  # 밝은 빨간색 시작
+    RESET = '\033[0m'  # 색상 초기화 (원래 색으로 되돌림)
 
     for week in month_calendar:
         week_string = ""
@@ -803,7 +806,7 @@ def print_calendar(year, month, doctor, reservations):
                 available_times = get_available_times(doctor, date_str, reservations)
 
                 if len(available_times) == 0:
-                    week_string += f"[{day:2d}] "
+                    week_string += f" {RED}{day:2d}{RESET}  "
                     fully_booked_dates.append(date_str)
                 else:
                     week_string += f" {day:2d}  "
@@ -811,7 +814,7 @@ def print_calendar(year, month, doctor, reservations):
         if week_string.strip():
             print(f'                   {week_string}')
 
-    print("\n                    * [ ]: 예약 불가능한 날짜")
+    print(f"\n                 * {RED}빨간색 숫자{RESET}: 예약 불가능한 날짜")
     print(f"=============================================================")
 
 def select_date(doctor, reservations):
