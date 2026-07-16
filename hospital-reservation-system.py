@@ -1729,7 +1729,7 @@ while True:
 
         # 일반 회원
         else:
-            urrent_user = user_view(current_user)
+            current_user = user_view(current_user)
 
 
 
