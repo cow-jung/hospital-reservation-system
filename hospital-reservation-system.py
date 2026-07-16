@@ -1956,9 +1956,9 @@ def delete_doctor():
     print(tabulate([target_row], headers=headers, tablefmt="grid", colalign=col_align))
 
     # 3. 삭제 최종 확인
-    print("\n" + "!" * 50)
-    print(" 경고: 삭제된 데이터는 복구할 수 없습니다! ".center(50))
-    print("!" * 50)
+    print("\n" + "!" * 100)
+    print("경고: 삭제된 데이터는 복구할 수 없습니다! ".center(90))
+    print("!" * 100)
     confirm = input(f"정말 [{doctor_id}] 의료진 정보를 완전히 삭제하시겠습니까? (Y/N) : ").strip().upper()
 
     if confirm == "Y":
