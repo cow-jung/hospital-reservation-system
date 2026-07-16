@@ -1705,22 +1705,101 @@ def show_all_doctors():
 
     print(line)
 
-    # 진료과/의료진 정보 출력
+    # 예약 정보 출력
     for row in reader[1:]:
         print(
-            pad(row[0], 18),
-            pad(row[1], 13),
+            pad(row[0], 15),
+            pad(row[1], 15),
             pad(row[2], 12),
-            pad(row[3], 10, "right"),
-            pad(row[4], 15, "right"),
-            pad(row[5], 11, "right"),
-            pad(row[6], 11, "right"),
-            pad(row[7], 11, "right"),
-            pad(row[8], 20, "right")
+            pad(row[3], 16, 'right'),
+            pad(row[4], 6, 'right'),
+            pad(row[5], 11, 'right'),
+            pad(row[6], 11, 'right'),
+            pad(row[7], 11, 'right'),
+            pad(row[8], 5, 'right')
         )
 
     # 표의 마지막 구분선
     print(line)
+
+
+    '''
+    from prettytable import PrettyTable
+
+    try:
+        with open("doctors.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("\n[오류] doctors.csv 파일이 존재하지 않습니다.")
+        return
+
+    # 표 객체 생성 및 헤더 설정
+    table = PrettyTable()
+    table.field_names = ["의료진번호", "이름", "진료과", "진료실번호", "진료과전화번호", "진료요일", "진료시작시간", "진료종료시간", "근무상태"]
+
+    # 모든 텍스트 왼쪽 정렬 설정 ('l' = left)
+    table.align = "l"
+
+    # 데이터 추가
+    for row in reader[1:]:
+        table.add_row([item.strip() for item in row])
+
+    # 타이틀과 표 출력
+    print("\n" + "=" * 100)
+    print("전체 진료과/의료진 조회".center(100))
+    print("=" * 100)
+    print(table)
+
+    '''
+
+    '''
+    # CSV 파일 안전하게 읽기
+    try:
+        with open("doctors.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("\n[오류] doctors.csv 파일이 존재하지 않습니다.")
+        return
+
+    # 1. 헤더와 데이터의 방 크기를 완전히 일치시키는 너비 리스트
+    widths = [15, 12, 18, 14, 18, 12, 15, 15, 10]
+    line = "=" * sum(widths)
+
+    # 2. 제목 중앙 정렬 출력
+    print("\n" + line)
+    print("전체 진료과/의료진 조회".center(len(line)))
+    print(line)
+
+    # 3. 헤더 출력 (+ 연산자로 공백 틈새 없이 강제 밀착)
+    print(
+        pad("의료진번호", widths[0]) +
+        pad("이름", widths[1]) +
+        pad("진료과", widths[2]) +
+        pad("진료실번호", widths[3]) +
+        pad("진료과전화번호", widths[4]) +
+        pad("진료요일", widths[5]) +
+        pad("진료시작시간", widths[6]) +
+        pad("진료종료시간", widths[7]) +
+        pad("근무상태", widths[8])
+    )
+    print(line)
+
+    # 4. 데이터 로우 반복 출력 (모든 칸의 숨은 공백을 .strip()으로 파괴)
+    for row in reader[1:]:
+        print(
+            pad(row[0].strip(), widths[0]) +  # 의료진번호
+            pad(row[1].strip(), widths[1]) +  # 이름
+            pad(row[2].strip(), widths[2]) +  # 진료과
+            pad(row[3].strip(), widths[3]) +  # 진료실번호 (301, 401, 501 등 전체 교정)
+            pad(row[4].strip(), widths[4]) +  # 진료과전화번호
+            pad(row[5].strip(), widths[5]) +  # 진료요일
+            pad(row[6].strip(), widths[6]) +  # 진료시작시간
+            pad(row[7].strip(), widths[7]) +  # 진료종료시간
+            pad(row[8].strip(), widths[8])  # 근무상태
+        )
+    print(line)
+    '''
+
 
 
 def show_doctors_by_department_admin():
