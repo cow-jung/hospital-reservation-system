@@ -110,7 +110,7 @@ def show_doctors_by_department(department):
 
 # 입력한 아이디/비밀번호가 일치하는 사용자 찾기
 def find_user(user_id, password):
-    with open('hospital_reservation_system/user.csv','r',encoding='utf-8-sig') as file:
+    with open('user.csv','r',encoding='utf-8-sig') as file:
         reader = csv.DictReader(file)
         for user in reader:
             if user['아이디'] == user_id and user['비밀번호'] == password:
@@ -124,7 +124,7 @@ def reservation_menu():
     print('\n========= 예약하기 =========')
     print('1. 진료과로 예약')
     print('2. 과거 진료 이력으로 예약')
-    print('0. 이전 메뉴')
+    print('\n0. 이전 메뉴')
     print('==========================\n')
 
 # 예약 전체 흐름
@@ -159,19 +159,28 @@ def reserve_by_department(current_user):
 
     # 2. 진료과 선택
     department = select_department(doctors)  # select_department : 진료과를 선택하기 위한 함수
+    if department is None:
+        return
 
     # 3. 의료진 선택
     doctor = select_doctor(doctors, department) # select_doctor : 의료진을 선택하기 위한 함수
     if doctor is None:  # 의료진이 없어서 None이 반환되었다면
         return  # 함수를 즉시 종료하고 예약 메뉴로 돌아감
 
-    # 4. 날짜 선택
-    date_str = select_date(doctor, reservations) # select_date : 날짜를 선택하기 위한 함수
-    if date_str is None:  # '취소'을 눌러서 None이 반환되었다면
-        return  # 예약 메뉴로 돌아감
+    while True:
+        # 4. 날짜 선택
+        date_str = select_date(doctor, reservations) # select_date : 날짜를 선택하기 위한 함수
+        if date_str is None:  # '취소'을 눌러서 None이 반환되었다면
+            return  # 예약 메뉴로 돌아감
 
-    # 5. 시간 선택
-    time_str = select_time(doctor, date_str, reservations)
+        # 5. 시간 선택
+        time_str = select_time(doctor, date_str, reservations)
+        if time_str is None:
+            print("\n시간 선택을 취소했습니다. 다시 날짜를 선택해주세요.")
+            continue
+
+        # 날짜와 시간을 모두 정상적으로 선택했다면 루프 탈출
+        break
 
     print(f"\n ========== [예약 상세] ==========")
     print(f"예약날짜: {date_str}")
@@ -204,7 +213,7 @@ def reserve_by_history(current_user):
     patient_id = current_user['환자번호']
 
     # 2. 해당 환자의 '진료완료' 기록만 필터링
-    history_records = [res for res in reservations if res['환자번호'] == patient_id and res['상태'] == '진료완료']
+    history_records = [record for record in reservations if record['환자번호'] == patient_id and record['상태'] == '진료완료']
 
     # 3. 기록이 없을 경우 처리
     if not history_records:
@@ -212,58 +221,66 @@ def reserve_by_history(current_user):
         return
 
     # 의료진 번호로 의료진 정보를 쉽게 찾기 위해 딕셔너리 생성
-    doctor_dict = {doc['의료진번호']: doc for doc in doctors}
+    doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
     print(f"\n======== [{current_user['이름']}]님의 진료 이력 ========")
 
     # 출력 및 선택을 위해 리스트에 저장
     display_list = []
-    for idx, record in enumerate(history_records, 1):
-        doc_id = record['의료진번호']
-        doctor_info = doctor_dict.get(doc_id)
+    for index, record in enumerate(history_records, 1):
+        doctor_info_id = record['의료진번호']
+        doctor_info = doctor_dict.get(doctor_info_id)
 
         # 만약 의료진 정보가 있다면 내역에 추가
         if doctor_info:
             date = record['예약날짜']
-            dept = doctor_info['진료과']
-            doc_name = doctor_info['이름']
+            department_name = doctor_info['진료과']
+            doctor_info_name = doctor_info['이름']
 
-            display_list.append(doctor_info)  # 예약 진행을 위해 doctor_info만 저장
-            print(f"{idx}. 진료과: {dept} / 의료진: {doc_name} / 진료 날짜: {date}")
+            display_list.append(doctor_info)
+            print(f"{index}. 진료과: {department_name} / 의료진: {doctor_info_name} / 진료 날짜: {date}")
 
-    print("0. 이전 메뉴로 돌아가기")
+    print("\n0. 이전 메뉴")
     print("=====================================================")
 
     # 4. 예약할 항목 선택
     while True:
         try:
-            val = input("\n다시 예약할 진료 항목의 번호를 선택하세요 > ").strip()
+            value = input("\n다시 예약할 진료 항목의 번호를 선택하세요 > ").strip()
 
-            if val == '0':
-                return  # 이전 메뉴로 돌아가기
+            if value == '0':
+                return
 
-            if not val:
+            if not value:
                 raise ValueError("공백 입력은 불가합니다.")
 
-            choice = int(val)
+            choice = int(value)
             if not (1 <= choice <= len(display_list)):
                 raise ValueError("범위를 벗어난 번호입니다.")
 
-            # 선택한 항목의 의료진 정보 추출
             selected_doctor = display_list[choice - 1]
             break
 
-        except ValueError as e:
-            if "invalid literal" in str(e):
+        except ValueError as error:
+            if "invalid literal" in str(error):
                 print("오류: 문자 입력은 불가합니다. 숫자로만 입력해주세요.")
             else:
-                print(f"오류: {e}")
+                print(f"오류: {error}")
 
     # 5. 기존 방식과 동일하게 예약 진행 (선택한 의료진 정보 사용)
     print(f"\n[{selected_doctor['진료과']} {selected_doctor['이름']} 원장] 예약 단계로 넘어갑니다.")
 
-    date_str = select_date(selected_doctor, reservations)
-    time_str = select_time(selected_doctor, date_str, reservations)
+    while True:
+        date_str = select_date(selected_doctor, reservations)
+        if date_str is None:  # 과거 이력으로 예약 중 날짜 선택 취소
+            return
+
+        time_str = select_time(selected_doctor, date_str, reservations)
+        if time_str is None:  # 과거 이력으로 예약 중 시간 선택 취소
+            print("\n시간 선택을 취소했습니다. 다시 날짜를 선택해주세요.")
+            continue
+
+        break
 
     # 예약 상세 확인 및 저장 로직
     print(f"\n ======== [예약 상세] ========")
@@ -277,176 +294,180 @@ def reserve_by_history(current_user):
 
         if confirm == 'Y':
             save_reservation(patient_id, selected_doctor, date_str, time_str, reservations)
-            break
+            return True
         elif confirm == 'N':
             print("\n진행 중인 예약이 취소되었습니다. 예약 초기 메뉴로 돌아갑니다.")
-            return
+            return False
         else:
             print("올바른 입력이 아닙니다. Y 또는 N을 입력해주세요.")
 
 def load_doctors():
-    """의료진 정보를 CSV에서 불러옵니다."""
+    # 의료진 정보를 CSV에서 불러옴
     doctors = []
     try:
-        with open('hospital_reservation_system/doctors.csv', 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
+        with open('doctors.csv', 'r', encoding='utf-8-sig') as file:
+            reader = csv.DictReader(file)
             for row in reader:
+                # .append(): 리스트(doctors)의 맨 마지막에 새로운 데이터(row)를 하나씩 추가
                 doctors.append(row)
     except FileNotFoundError:
-        print(f"오류: {'hospital_reservation_system/doctors.csv'} 파일이 존재하지 않습니다.")
+        print(f"오류: {'doctors.csv'} 파일이 존재하지 않습니다.")
         return None
     return doctors
 
 def load_reservations():
-    """전체 예약 정보를 CSV에서 불러옵니다."""
+    # 전체 예약 정보를 CSV에서 불러옴
     reservations = []
     try:
-        with open('hospital_reservation_system/reservations_total_only.csv', 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
+        with open('reservations_total_only.csv', 'r', encoding='utf-8-sig') as file:
+            reader = csv.DictReader(file)
             for row in reader:
                 reservations.append(row)
     except FileNotFoundError:
-        # 파일이 없으면 빈 리스트 반환 (나중에 새로 생성됨)
         pass
     return reservations
 
 def select_department(doctors):
-    """진료과를 선택합니다."""
-    departments = sorted(list(set(doc['진료과'] for doc in doctors)))
+    # 진료과를 선택하기 위한 함수 정의
+    # set(): 중복된 데이터를 제거
+    # sorted(): 데이터를 가나다순(또는 오름차순)으로 정렬
+    departments = sorted(list(set(doctor_info['진료과'] for doctor_info in doctors)))
 
     print("\n======== 진료과 선택 ========")
-    for idx, dept in enumerate(departments, 1):
-        print(f"{idx}. {dept}")
+    # enumerate(리스트, 1): 리스트의 내용물을 꺼낼 때 1부터 시작하는 순서 번호(index)도 같이 꺼냄
+    for index, department_name in enumerate(departments, 1):
+        print(f"{index}. {department_name}")
+    print("\n0. 이전 메뉴")
 
     while True:
         try:
-            val = input("\n 진료과 번호를 선택하세요: ").strip()
-            if not val:
+            # .strip(): 사용자가 실수로 스페이스바를 누르거나 엔터를 친 '공백'을 양끝에서 깔끔하게 잘라내는 기능
+            value = input("\n 진료과 번호를 선택하세요: ").strip()
+            if value == '0':
+                return None
+            if not value:
                 raise ValueError("공백 입력은 불가합니다.")
-            choice = int(val)
+            choice = int(value)
             if not (1 <= choice <= len(departments)):
                 raise ValueError("범위를 벗어난 번호입니다.")
             return departments[choice - 1]
-        except ValueError as e:
-            if "invalid literal" in str(e):
+        except ValueError as error:
+            if "invalid literal" in str(error):
                 print("오류: 문자 입력은 불가합니다. 숫자로만 입력해주세요.")
             else:
-                print(f"오류: {e}")
+                print(f"오류: {error}")
 
 def select_doctor(doctors, department):
-    """선택한 진료과의 근무 중인 의료진을 선택합니다."""
     # 근무상태가 '진료중'인 해당 진료과 의사만 필터링
-    available_doctors = [d for d in doctors if d['진료과'] == department and d['근무상태'] == '진료중']
+    available_doctors = [doctor_info for doctor_info in doctors if doctor_info['진료과'] == department and doctor_info['근무상태'] == '진료중']
 
     if not available_doctors:
         print("현재 해당 진료과에 예약 가능한 의료진이 없습니다.")
         return None
 
     print(f"\n==================== {department} 의료진 선택 ====================")
-    for idx, doc in enumerate(available_doctors, 1):
-        print(f"{idx}. {doc['이름']} (진료요일: {doc['진료요일']} / 진료시간: {doc['진료시작시간']} ~ {doc['진료종료시간']})")
+    for index, doctor_info in enumerate(available_doctors, 1):
+        print(f"{index}. {doctor_info['이름']} (진료요일: {doctor_info['진료요일']} / 진료시간: {doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']})")
+    print("\n0. 이전 메뉴")
 
     while True:
         try:
-            val = input("\n 예약을 원하는 의료진 번호를 숫자로 입력하세요: ").strip()
-            if not val:
+            value = input("\n예약을 원하는 의료진 번호를 숫자로 입력하세요: ").strip()
+            if value == '0':
+                return None
+            if not value:
                 raise ValueError("공백 입력은 불가합니다.")
-            choice = int(val)
+            choice = int(value)
             if not (1 <= choice <= len(available_doctors)):
                 raise ValueError("범위를 벗어난 번호입니다.")
             return available_doctors[choice - 1]
-        except ValueError as e:
-            if "invalid literal" in str(e):
+        except ValueError as error:
+            if "invalid literal" in str(error):
                 print("오류: 문자 입력은 불가합니다. 숫자로만 입력해주세요.")
             else:
-                print(f"오류: {e}")
+                print(f"오류: {error}")
 
 def create_time_slots(start_time, end_time):
-    """시작 시간부터 종료 시간까지 30분 단위의 시간 슬롯을 생성합니다."""
+    # 시작 시간부터 종료 시간까지 30분 단위의 시간 슬롯을 생성
     slots = []
-    start_h, start_m = map(int, start_time.split(':'))
-    end_h, end_m = map(int, end_time.split(':'))
+    # map(int, 리스트): 리스트 안의 모든 데이터를 정수(int)로 한 번에 변환
+    start_hour, start_minute = map(int, start_time.split(':'))
+    end_hour, end_minute = map(int, end_time.split(':'))
 
-    curr_h, curr_m = start_h, start_m
-    while curr_h < end_h or (curr_h == end_h and curr_m < end_m):
-        slots.append(f"{curr_h:02d}:{curr_m:02d}")
-        curr_m += 30
-        if curr_m >= 60:
-            curr_h += 1
-            curr_m -= 60
+    current_hour, current_minute = start_hour, start_minute
+    while current_hour < end_hour or (current_hour == end_hour and current_minute < end_minute):
+        slots.append(f"{current_hour:02d}:{current_minute:02d}")
+        current_minute += 30
+        if current_minute >= 60:
+            current_hour += 1
+            current_minute -= 60
     return slots
 
 def get_available_times(doctor, date_str, reservations):
-    """특정 날짜의 예약 가능한 시간 목록을 반환합니다."""
+    # 특정 날짜의 예약 가능한 시간 목록을 반환
     # 주말(토, 일)은 예약 불가
-    y, m, d = map(int, date_str.split('-'))
-    target_date = datetime.date(y, m, d)
-    if target_date.weekday() >= 5:  # 5: 토요일, 6: 일요일
+    year, month, day = map(int, date_str.split('-'))
+    target_date = datetime.date(year, month, day)
+
+    # target_date.weekday(): 월요일은 0, 일요일은 6과 같이 요일을 숫자로 안내
+    if target_date.weekday() >= 5:  # 5(토요일), 6(일요일)이면 빈 리스트 반환
         return []
 
-    # 진료요일 확인
-    # 파이썬의 weekday()는 0(월)~6(일)의 정수를 반환하므로 한글 요일과 매핑
     weekday_map = {0: '월', 1: '화', 2: '수', 3: '목', 4: '금', 5: '토', 6: '일'}
     target_weekday_str = weekday_map[target_date.weekday()]
 
-    # doctors.csv의 '진료요일' 항목을 가져옴 (문자열 형태, 예: "월,수,금")
-    # 혹시 csv에 '진료요일' 열이 누락되었을 때 에러를 막기 위해 기본값(월~금) 설정
     working_days = doctor.get('진료요일', '월,화,수,목,금')
 
-    # 선택한 날짜의 요일이 해당 의사의 '진료요일'에 포함되어 있지 않다면 예약 불가
     if target_weekday_str not in working_days:
         return []
 
-    # 과거 날짜 예약 불가
     if target_date < datetime.date.today():
         return []
 
     slots = create_time_slots(doctor['진료시작시간'], doctor['진료종료시간'])
 
-    # 예약된 시간 제외 ('예약취소'는 다시 예약 가능하므로 제외하지 않음)
-    for res in reservations:
-        if res['의료진번호'] == doctor['의료진번호'] and res['예약날짜'] == date_str:
-            if res['상태'] in ['예약완료', '진료완료']:
-                if res['예약시간'] in slots:
-                    slots.remove(res['예약시간'])
+    for reservation_record in reservations:
+        if reservation_record['의료진번호'] == doctor['의료진번호'] and reservation_record['예약날짜'] == date_str:
+            if reservation_record['상태'] in ['예약완료', '진료완료']:
+                if reservation_record['예약시간'] in slots:
+                    # .remove(): 리스트 안에서 해당하는 특정 데이터 하나를 찾아 삭제
+                    slots.remove(reservation_record['예약시간'])
 
     return slots
 
 def print_calendar(year, month, doctor, reservations):
-    """해당 월의 달력을 출력하고 예약 마감 날짜를 표시합니다."""
-    cal = calendar.monthcalendar(year, month)
+    # 해당 월의 달력을 출력하고 예약 마감 날짜를 표시
+    # calendar.monthcalendar(): 해당 월의 달력을 1주 단위로 묶어서 리스트 형태로 반환
+    month_calendar = calendar.monthcalendar(year, month)
     print(f"\n======== {year}년 {month}월 예약 달력 ========")
     print("월    화    수    목   금")
 
     fully_booked_dates = []
 
-    for week in cal:
-        week_str = ""
-        # week[:5]를 사용하여 월요일(0)부터 금요일(4)까지만 반복
-        for i, day in enumerate(week[:5]):
+    for week in month_calendar:
+        week_string = ""
+        # week[:5]: 리스트를 처음부터 5번째 항목(월~금)까지만 잘라서 사용 (슬라이싱)
+        for _, day in enumerate(week[:5]):
             if day == 0:
-                week_str += "     "
+                week_string += "     "
             else:
                 date_str = f"{year}-{month:02d}-{day:02d}"
-                avail_times = get_available_times(doctor, date_str, reservations)
+                available_times = get_available_times(doctor, date_str, reservations)
 
-                # 예약 가능한 시간이 없으면 [17] 형태로 출력
-                if len(avail_times) == 0:
-                    week_str += f"[{day:2d}] "
+                if len(available_times) == 0:
+                    week_string += f"[{day:2d}] "
                     fully_booked_dates.append(date_str)
                 else:
-                    week_str += f" {day:2d}  "
+                    week_string += f" {day:2d}  "
 
-        # 3. 만약 해당 주(week)의 평일이 모두 0(공백)이라서 빈 줄이 되면 출력하지 않음
-        # (예: 1일이 토요일로 시작하는 달의 첫째 주는 평일이 아예 없음)
-        if week_str.strip():
-            print(week_str)
+        if week_string.strip():
+            print(week_string)
 
     print("\n * [ ]: 예약 불가능한 날짜")
     print(f"===================================")
 
 def select_date(doctor, reservations):
-    """예약할 날짜를 달력에서 선택합니다."""
+    # 예약할 날짜를 달력에서 선택
     now = datetime.date.today()
     current_year = now.year
     current_month = now.month
@@ -455,32 +476,34 @@ def select_date(doctor, reservations):
         print_calendar(current_year, current_month, doctor, reservations)
 
         print()
-        print("(이전달: 이전 /  다음달: 다음  /  취소: 취소) >> 해당 메뉴 이용 시 아래에 입력")
+        print("(이전달: 이전 /  다음달: 다음  /  예약 취소: 취소) >> 해당 메뉴 이용 시 아래에 입력")
         print()
 
         try:
-            val = input("예약할 날짜(일)를 숫자로 입력하세요: ").strip()
+            value = input("예약할 날짜(일)를 숫자로 입력하세요: ").strip()
 
-            if val.lower() == '취소':
-                print("예약을 취소하고 이전 메뉴로 돌아갑니다.")
+            # .lower(): 입력된 영어 문자열을 모두 소문자로 변환 (대소문자 상관없이 인식하기 위함)
+            if value.lower() == '취소':
+                print("\n진행 중인 예약이 취소되었습니다. 예약 초기 메뉴로 돌아갑니다.")
                 return None
-            elif val.lower() == '다음':
+            elif value.lower() == '다음':
                 current_month += 1
                 if current_month > 12:
                     current_year += 1
                     current_month = 1
                 continue
-            elif val.lower() == '이전':
+            elif value.lower() == '이전':
                 current_month -= 1
                 if current_month < 1:
                     current_year -= 1
                     current_month = 12
                 continue
 
-            if not val:
+            if not value:
                 raise ValueError("공백 입력은 불가합니다.")
 
-            day = int(val)
+            day = int(value)
+            # calendar.monthrange()[1]: 해당 연도, 월이 며칠까지 있는지 마지막 날짜를 안내
             last_day = calendar.monthrange(current_year, current_month)[1]
 
             if not (1 <= day <= last_day):
@@ -488,66 +511,70 @@ def select_date(doctor, reservations):
 
             date_str = f"{current_year}-{current_month:02d}-{day:02d}"
 
-            # 예약 가능 여부 확인
-            avail_times = get_available_times(doctor, date_str, reservations)
-            if not avail_times:
+            available_times = get_available_times(doctor, date_str, reservations)
+            if not available_times:
                 raise ValueError("해당 날짜는 예약 가능한 시간이 없습니다(주말, 과거 날짜, 또는 마감).")
 
             return date_str
 
-        except ValueError as e:
-            if "invalid literal" in str(e):
+        except ValueError as error:
+            if "invalid literal" in str(error):
                 print("오류: 문자 입력이 감지되었습니다. 숫자로만 입력해주세요.")
             else:
-                print(f"오류: {e}")
+                print(f"오류: {error}")
 
 def select_time(doctor, date_str, reservations):
-    """해당 날짜에 예약 가능한 시간대를 선택합니다."""
-    avail_times = get_available_times(doctor, date_str, reservations)
+    # 해당 날짜에 예약 가능한 시간대를 선택
+    available_times = get_available_times(doctor, date_str, reservations)
 
     print(f"\n=========== {date_str} 예약 가능 시간 ===========")
-    for idx, t in enumerate(avail_times, 1):
-        print(f"{idx}. {t}")
+    for index, t in enumerate(available_times, 1):
+        print(f"{index}. {t}")
+    print("\n0. 이전 메뉴")
 
     while True:
         try:
-            val = input("\n 예약을 원하는 시간의 번호를 숫자로 입력하세요: ").strip()
-            if not val:
+            value = input("\n예약을 원하는 시간의 번호를 숫자로 입력하세요: ").strip()
+            if value == "0":
+                return None
+            if not value:
                 raise ValueError("공백 입력은 불가합니다.")
-            choice = int(val)
-            if not (1 <= choice <= len(avail_times)):
+            choice = int(value)
+            if not (1 <= choice <= len(available_times)):
                 raise ValueError("잘못된 시간 선택(범위를 벗어난 번호)입니다.")
-            return avail_times[choice - 1]
-        except ValueError as e:
-            if "invalid literal" in str(e):
+            return available_times[choice - 1]
+        except ValueError as error:
+            if "invalid literal" in str(error):
                 print("오류: 문자 입력이 감지되었습니다. 숫자로만 입력해주세요.")
             else:
-                print(f"오류: {e}")
+                print(f"오류: {error}")
 
 def save_reservation(patient_id, doctor, date_str, time_str, reservations):
-    """예약을 완료하고 예약번호를 생성하여 CSV에 저장합니다."""
-    # 1. 예약번호 생성 (YYYYMMDD-순번)
+    # 예약을 완료하고 예약번호를 생성하여 CSV에 저장
+    # .replace("-", ""): 문자열에서 "-" 기호를 찾아서 ""(빈 문자열)로 대체
     date_prefix = date_str.replace("-", "")
-    max_seq = 0
+    max_sequence_number = 0
     total_fare = 0
 
-    # 같은 날짜의 예약들을 찾아 최대 순번 구하기
-    for res in reservations:
-        if res.get('예약날짜') == date_str:
-            res_id = res.get('예약번호', '')
-            if res_id.startswith(date_prefix):
+    for reservation_record in reservations:
+        if reservation_record.get('예약날짜') == date_str:
+            # .get('키', '기본값'): 딕셔너리에서 값을 찾을 때 사용. 키가 없으면 에러가 나는 대신 '기본값'을 안전하게 반환
+            reservation_id = reservation_record.get('예약번호', '')
+
+            # .startswith(): 문자열이 괄호 안의 글자(date_prefix)로 시작하는지 확인하여 참(True)/거짓(False)을 안내
+            if reservation_id.startswith(date_prefix):
                 try:
-                    seq = int(res_id.split("-")[1])
-                    if seq > max_seq:
-                        max_seq = seq
+                    # .split("-"): 문자열을 "-" 기준으로 쪼개서 리스트로 생성 (예: ["20260701", "001"])
+                    sequence_number = int(reservation_id.split("-")[1])
+                    if sequence_number > max_sequence_number:
+                        max_sequence_number = sequence_number
                 except (IndexError, ValueError):
                     pass
 
-    new_res_id = f"{date_prefix}-{max_seq + 1:03d}"
+    new_reservation_id = f"{date_prefix}-{max_sequence_number + 1:03d}"
 
-    # 2. 저장할 새로운 예약 딕셔너리 구성
     new_reservation = {
-        '예약번호': new_res_id,
+        '예약번호': new_reservation_id,
         '환자번호': patient_id,
         '의료진번호': doctor['의료진번호'],
         '예약날짜': date_str,
@@ -558,18 +585,19 @@ def save_reservation(patient_id, doctor, date_str, time_str, reservations):
 
     fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
 
-    # 3. 파일 존재 여부 확인 및 저장
-    file_exists = os.path.isfile('hospital_reservation_system/reservations_total_only.csv')
+    # os.path.isfile(): 해당 경로에 파일이 실제로 존재하는지 확인
+    file_exists = os.path.isfile('reservations_total_only.csv')
 
-    with open('hospital_reservation_system/reservations_total_only.csv', 'a', encoding='utf-8-sig', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    with open('reservations_total_only.csv', 'a', encoding='utf-8-sig', newline='') as file:
+        # csv.DictWriter(): 딕셔너리 형태의 데이터를 CSV 파일에 쓸 수 있게 하는 기능
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
         if not file_exists:
-            writer.writeheader()
-        writer.writerow(new_reservation)
+            writer.writeheader()  # 파일이 없어서 새로 만들었다면 맨 윗줄(헤더)을 작성
+        writer.writerow(new_reservation)  # 실제 데이터를 한 줄 작성
 
     print(f"\n ======== [예약 완료] ========")
     print(f"예약이 아래와 같이 완료되었습니다.")
-    print(f"발급된 예약번호: {new_res_id}")
+    print(f"발급된 예약번호: {new_reservation_id}")
     print(f"=============================")
     print()
     print()
