@@ -39,6 +39,7 @@ from wcwidth import wcswidth
 import calendar
 import datetime
 import os
+os.system("") # cmd에서 색을 나타내기 위한 새로고침 기능
 
 def show_login_menu(): # 로그인 첫 메뉴
     print('======== 🏥 병원 예약 관리 시스템 로그인 ========')
@@ -792,6 +793,8 @@ def print_calendar(year, month, doctor, reservations):
     print("                    월    화    수   목   금")
 
     fully_booked_dates = []
+    RED = '\033[91m'  # 밝은 빨간색 시작
+    RESET = '\033[0m'  # 색상 초기화 (원래 색으로 되돌림)
 
     for week in month_calendar:
         week_string = ""
@@ -804,7 +807,7 @@ def print_calendar(year, month, doctor, reservations):
                 available_times = get_available_times(doctor, date_str, reservations)
 
                 if len(available_times) == 0:
-                    week_string += f"[{day:2d}] "
+                    week_string += f" {RED}{day:2d}{RESET}  "
                     fully_booked_dates.append(date_str)
                 else:
                     week_string += f" {day:2d}  "
@@ -812,7 +815,7 @@ def print_calendar(year, month, doctor, reservations):
         if week_string.strip():
             print(f'                   {week_string}')
 
-    print("\n                    * [ ]: 예약 불가능한 날짜")
+    print(f"\n                 * {RED}빨간색 숫자{RESET}: 예약 불가능한 날짜")
     print(f"=============================================================")
 
 def select_date(doctor, reservations):
@@ -900,6 +903,7 @@ def select_time(doctor, date_str, reservations):
                 print(f"오류: {error}")
 
 def save_reservation(patient_id, doctor, date_str, time_str, reservations):
+    # 1. 예약번호 생성 및 딕셔너리 구성
     # 예약을 완료하고 예약번호를 생성하여 CSV에 저장
     # .replace("-", ""): 문자열에서 "-" 기호를 찾아서 ""(빈 문자열)로 대체
     date_prefix = date_str.replace("-", "")
@@ -936,14 +940,25 @@ def save_reservation(patient_id, doctor, date_str, time_str, reservations):
     fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
 
     # os.path.isfile(): 해당 경로에 파일이 실제로 존재하는지 확인
-    file_exists = os.path.isfile('reservations_total_only.csv')
+    file_path = 'reservations_total_only.csv'
+    file_exists = os.path.isfile(file_path)
 
-    with open('reservations_total_only.csv', 'a', encoding='utf-8-sig', newline='') as file:
-        # csv.DictWriter(): 딕셔너리 형태의 데이터를 CSV 파일에 쓸 수 있게 하는 기능
+    # 2. 파일이 이미 존재하면 파일의 첫 줄을 읽어와서 순서를 맞춤
+    if file_exists:
+        with open(file_path, 'r', encoding='utf-8-sig') as file:
+            reader = csv.reader(file)
+            # next()를 사용해 첫 번째 줄(헤더)만 쏙 뽑아옵니다.
+            fieldnames = next(reader)
+    else:
+        # 파일이 없을 때만 기본 순서 사용 (CSV 파일의 실제 순서와 맞춤)
+        fieldnames = ['예약번호', '환자번호', '예약날짜', '의료진번호', '총금액', '예약시간', '상태']
+
+    # 3. 데이터 추가 (동기화된 fieldnames 사용)
+    with open(file_path, 'a', encoding='utf-8-sig', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         if not file_exists:
-            writer.writeheader()  # 파일이 없어서 새로 만들었다면 맨 윗줄(헤더)을 작성
-        writer.writerow(new_reservation)  # 실제 데이터를 한 줄 작성
+            writer.writeheader()
+        writer.writerow(new_reservation)
 
     print(f"\n========================= [예약 완료] =======================")
     print(f"예약이 아래와 같이 완료되었습니다.")
