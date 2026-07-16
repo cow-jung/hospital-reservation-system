@@ -976,7 +976,7 @@ def my_reservation(current_user):
             show_my_reservations(current_user)
 
         elif choice == '2':
-            update_my_reservation(current_user)
+            modify_reservation(current_user) # 수정 전 변수명: update_reservation(current_user)
 
         elif choice == '3':
             cancel_my_reservation(current_user)
@@ -1019,10 +1019,118 @@ def show_my_reservations(current_user):
                 print()
 
 # 내 예약 변경
-def update_my_reservation(current_user):
-    print('\n======== 예약 변경 ========')
-    print(current_user['이름'], '님의 예약을 변경합니다.')
-    print()
+def update_reservations_csv(reservations):
+    """수정된 전체 예약 목록을 CSV 파일에 덮어씁니다."""
+    import os
+    import csv
+
+    file_path = 'reservations_total_only.csv'
+
+    if reservations:
+        # .keys(): 딕셔너리에서 값(value)을 제외하고 이름표(key)들만 쏙 뽑아옵니다.
+        # list(): 뽑아온 키들을 리스트 형태로 변환합니다. (예: ['예약번호', '환자번호', ...])
+        fieldnames = list(reservations[0].keys())
+    else:
+        fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
+
+    # 'w' 모드(Write): 파일의 기존 내용을 싹 지우고 처음부터 새로 씁니다. (덮어쓰기)
+    with open(file_path, 'w', encoding='utf-8-sig', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        # .writerows(): writerow(단수)와 달리, 리스트 안에 있는 여러 줄의 데이터를 한 번에 파일에 씁니다.
+        writer.writerows(reservations)
+
+
+def modify_reservation(current_user):
+    """내 예약 정보를 확인하고 날짜와 시간을 수정합니다."""
+    reservations = load_reservations()
+    doctors = load_doctors()
+    patient_id = current_user['환자번호']
+
+    # 1. 내 예약 중 '예약완료' 상태인 것만 걸러내기 (리스트 컴프리헨션)
+    active_reservations = [record for record in reservations if record['환자번호'] == patient_id and record['상태'] == '예약완료']
+
+    if not active_reservations:
+        print("\n수정할 수 있는 예약 내역이 없습니다.")
+        return
+
+    # 의사 정보를 쉽게 찾기 위해 딕셔너리 생성
+    doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
+
+    print(f"\n======== [{current_user['이름']}]님의 예약 수정 ========")
+    for index, record in enumerate(active_reservations, 1):
+        doctor_info = doctor_dict.get(record['의료진번호'])
+        if doctor_info:
+            print(
+                f"{index}. [예약번호: {record['예약번호']}] {doctor_info['진료과']} {doctor_info['이름']} 원장 / 기존 예약: {record['예약날짜']} {record['예약시간']}")
+    print("0. 이전 메뉴로 돌아가기")
+
+    # 2. 수정할 예약 선택
+    while True:
+        try:
+            input_value = input("\n수정할 예약 번호를 선택하세요: ").strip()
+            if input_value == '0':
+                return None
+            if not input_value:
+                raise ValueError("공백 입력은 불가합니다.")
+
+            choice = int(input_value)
+            if not (1 <= choice <= len(active_reservations)):
+                raise ValueError("범위를 벗어난 번호입니다.")
+
+            # 사용자가 선택한 수정 대상 예약 정보
+            target_reservation = active_reservations[choice - 1]
+            break
+        except ValueError as error:
+            if "invalid literal" in str(error):
+                print("오류: 숫자로만 입력해주세요.")
+            else:
+                print(f"오류: {error}")
+
+    # 3. 선택한 예약의 의료진 정보 추출
+    doctor = doctor_dict.get(target_reservation['의료진번호'])
+    print(f"\n[{doctor['진료과']} {doctor['이름']} 원장] 예약 변경을 시작합니다.")
+
+    # 4. 새로운 날짜와 시간 선택 (기존 블록 재사용)
+    while True:
+        new_date = select_date(doctor, reservations)
+        if new_date is None:
+            return
+
+        new_time = select_time(doctor, new_date, reservations)
+        if new_time is None:
+            print("\n▶ 시간 선택을 취소했습니다. 다시 날짜를 선택해주세요.")
+            continue
+
+        break
+
+    # 5. 변경 상세 확인 및 덮어쓰기
+    print(f"\n ======== [예약 수정 상세] ========")
+    print(f"기존 예약: {target_reservation['예약날짜']} {target_reservation['예약시간']}")
+    print(f"변경 예약: {new_date} {new_time}")
+    print(f"================================")
+
+    while True:
+        confirm = input("\n위 일정으로 예약을 수정하시겠습니까? (Y/N) > ").strip().upper()
+
+        if confirm == 'Y':
+            # 전체 reservations 리스트 안에 있는 타겟 예약의 데이터만 새롭게 바꿉니다.
+            target_reservation['예약날짜'] = new_date
+            target_reservation['예약시간'] = new_time
+
+            # 변경된 전체 리스트를 CSV에 덮어씁니다.
+            update_reservations_csv(reservations)
+
+            print("\n예약 수정이 정상적으로 완료되었습니다. 이전 메뉴로 돌아갑니다.")
+            return True
+
+        elif confirm == 'N':
+            print("\n예약 수정이 취소되었습니다. 이전 메뉴로 돌아갑니다.")
+            return False
+
+        else:
+            print("올바른 입력이 아닙니다. Y 또는 N을 입력해주세요.")
 
 # 내 예약 취소
 def cancel_my_reservation(current_user):
