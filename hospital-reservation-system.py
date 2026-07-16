@@ -1744,7 +1744,6 @@ def payment_sales_manage_menu():
 
 def show_all_payments():
     print('\n======== 전체 진료비 조회 ========')
-
     # 전체 진료비와 수납 상태 조회
 
 
