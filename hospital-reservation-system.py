@@ -886,6 +886,7 @@ def pad(text, width, align="left"):
     else:
         return text + " " * space
 
+# 전체 조회
 def show_all_reservations():
     import csv
     from wcwidth import wcswidth
@@ -934,7 +935,7 @@ def show_all_reservations():
     # 표의 마지막 구분선
     print(line)
 
-
+# 환자별 조회
 def search_reservation_by_patient():
     import csv
 
@@ -995,7 +996,7 @@ def search_reservation_by_patient():
         print("조회된 예약이 없습니다.")
 
 
-
+# 예약 수정
 def update_reservation():
     print('\n======== 예약 수정 ========')
 
