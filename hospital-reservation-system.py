@@ -29,6 +29,7 @@
 
 '''
 import csv
+import pprint
 import re
 from getpass import getpass
 from tabnanny import check
@@ -38,6 +39,7 @@ from wcwidth import wcswidth
 import calendar
 import datetime
 import os
+os.system("") # cmd에서 색을 나타내기 위한 새로고침 기능
 
 def show_login_menu(): # 로그인 첫 메뉴
     print('======== 🏥 병원 예약 관리 시스템 로그인 ========')
@@ -791,6 +793,8 @@ def print_calendar(year, month, doctor, reservations):
     print("                    월    화    수   목   금")
 
     fully_booked_dates = []
+    RED = '\033[91m'  # 밝은 빨간색 시작
+    RESET = '\033[0m'  # 색상 초기화 (원래 색으로 되돌림)
 
     for week in month_calendar:
         week_string = ""
@@ -803,7 +807,7 @@ def print_calendar(year, month, doctor, reservations):
                 available_times = get_available_times(doctor, date_str, reservations)
 
                 if len(available_times) == 0:
-                    week_string += f"[{day:2d}] "
+                    week_string += f" {RED}{day:2d}{RESET}  "
                     fully_booked_dates.append(date_str)
                 else:
                     week_string += f" {day:2d}  "
@@ -811,7 +815,7 @@ def print_calendar(year, month, doctor, reservations):
         if week_string.strip():
             print(f'                   {week_string}')
 
-    print("\n                    * [ ]: 예약 불가능한 날짜")
+    print(f"\n                 * {RED}빨간색 숫자{RESET}: 예약 불가능한 날짜")
     print(f"=============================================================")
 
 def select_date(doctor, reservations):
@@ -899,6 +903,7 @@ def select_time(doctor, date_str, reservations):
                 print(f"오류: {error}")
 
 def save_reservation(patient_id, doctor, date_str, time_str, reservations):
+    # 1. 예약번호 생성 및 딕셔너리 구성
     # 예약을 완료하고 예약번호를 생성하여 CSV에 저장
     # .replace("-", ""): 문자열에서 "-" 기호를 찾아서 ""(빈 문자열)로 대체
     date_prefix = date_str.replace("-", "")
@@ -932,17 +937,26 @@ def save_reservation(patient_id, doctor, date_str, time_str, reservations):
         '상태': '예약완료'
     }
 
-    fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
-
     # os.path.isfile(): 해당 경로에 파일이 실제로 존재하는지 확인
-    file_exists = os.path.isfile('reservations_total_only.csv')
+    file_path = 'reservations_total_only.csv'
+    file_exists = os.path.isfile(file_path)
 
-    with open('reservations_total_only.csv', 'a', encoding='utf-8-sig', newline='') as file:
-        # csv.DictWriter(): 딕셔너리 형태의 데이터를 CSV 파일에 쓸 수 있게 하는 기능
+    # 2. 파일이 이미 존재하면 파일의 첫 줄을 읽어와서 순서를 맞춤
+    if file_exists:
+        with open(file_path, 'r', encoding='utf-8-sig') as file:
+            reader = csv.reader(file)
+            # next()를 사용해 첫 번째 줄(헤더)만 쏙 뽑아옵니다.
+            fieldnames = next(reader)
+    else:
+        # 파일이 없을 때만 기본 순서 사용 (CSV 파일의 실제 순서와 맞춤)
+        fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
+
+    # 3. 데이터 추가 (동기화된 fieldnames 사용)
+    with open(file_path, 'a', encoding='utf-8-sig', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         if not file_exists:
-            writer.writeheader()  # 파일이 없어서 새로 만들었다면 맨 윗줄(헤더)을 작성
-        writer.writerow(new_reservation)  # 실제 데이터를 한 줄 작성
+            writer.writeheader()
+        writer.writerow(new_reservation)
 
     print(f"\n========================= [예약 완료] =======================")
     print(f"예약이 아래와 같이 완료되었습니다.")
@@ -1375,124 +1389,122 @@ def reservation_manage_menu():
     print('==========================\n')
 
 
-# 한글을 포함한 문자열의 출력 너비를 맞춰주는 함수
-def pad(text, width, align="left"):
-    text = str(text)
-    space = width - wcswidth(text)
-
-    if align == "right":
-        return " " * space + text
-    else:
-        return text + " " * space
-
 # 전체 조회
 def show_all_reservations():
     import csv
-    from wcwidth import wcswidth
-
+    from tabulate import tabulate
     # CSV 파일 읽기
-    with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
-        reader = list(csv.DictReader(file))
+    try:
+        with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.DictReader(file))
+    except FileNotFoundError:
+        print("파일을 찾을 수 없습니다.")
+        return
 
-    # 표의 가로 구분선
-    line = "=" * 125
+    # 1. 헤더 정의
+    headers = ["예약번호", "환자번호", "의료진번호", "예약날짜", "예약시간", "급여", "비급여", "총금액", "상태"]
 
-    # 제목 출력
-    print(line)
-    print("전체 예약 조회".center(len(line)))
-    print(line)
-
-    # 헤더 출력
-    print(
-        pad("   예약번호", 21),
-        pad("환자번호", 14),
-        pad("의료진번호", 17),
-        pad("예약날짜", 16),
-        pad("예약시간", 15),
-        pad("급여", 12),
-        pad("비급여", 14),
-        pad("총금액", 14),
-        pad("상태", 10)
-    )
-
-    print(line)
-
-    # 예약 정보 출력
+    # 2. 표에 들어갈 데이터 행(Row) 구축
+    table_data = []
     for row in reader:
-        print(
-            pad(row["예약번호"], 18),
-            pad(row["환자번호"], 13),
-            pad(row["의료진번호"], 12),
-            pad(row["예약날짜"], 16),
-            pad(row["예약시간"], 6),
-            pad(f"{int(row['급여']):,}", 11, 'right') + ' ',
-            pad(f"{int(row['비급여']):,}", 11, 'right') + ' ',
-            pad(f"{int(row['총금액']):,}", 11, 'right') + '      ',
-            pad(row["상태"], 5)
-        )
+        # 금액 데이터 천 단위 콤마(,) 포맷팅
+        salary_paid = f"{int(row['급여']):,}"
+        non_salary_paid = f"{int(row['비급여']):,}"
+        total_paid = f"{int(row['총금액']):,}"
 
-    # 표의 마지막 구분선
-    print(line)
+        table_data.append([
+            row["예약번호"],
+            row["환자번호"],
+            row["의료진번호"],
+            row["예약날짜"],
+            row["예약시간"],
+            salary_paid,
+            non_salary_paid,
+            total_paid,
+            row["상태"]
+        ])
+
+    # 3. 각 열의 정렬 방식 지정 (가운데 정렬 5개, 오른쪽 정렬 3개, 가운데 정렬 1개)
+    col_align = ["center", "center", "center", "center", "center", "right", "right", "right", "center"]
+
+    # 4. 표 출력 (딱 한 번만 출력되도록 정리!)
+    print("=" * 112)
+    print("전체 예약 조회".center(112))
+    print("=" * 112)
+
+    # grid 옵션 적용하여 출력
+    print(tabulate(
+        table_data,
+        headers=headers,
+        tablefmt="grid",  # 원하셨던 2번 스타일!
+        colalign=col_align
+    ))
+
 
 # 환자별 조회
 def search_reservation_by_patient():
     import csv
+    from tabulate import tabulate
 
     # 조회할 환자번호 입력
-    patient_no = input("\n환자번호를 입력하세요 : ")
+    patient_no = input("\n환자번호를 입력하세요 : ").strip()
 
     # CSV 파일 읽기
-    with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
-        reader = list(csv.reader(file))
+    try:
+        with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("파일을 찾을 수 없습니다.")
+        return
 
-    # 표의 가로 구분선
-    line = "=" * 125
+    # 1. 헤더 정의 (reader[0] 대신 보기 좋은 한글 헤더 지정)
+    headers = ["예약번호", "환자번호", "의료진번호", "예약날짜", "예약시간", "급여", "비급여", "총금액", "상태"]
 
-    print()
-    print(line)
-    print("환자별 예약 조회".center(len(line)))
-    print(line)
+    # 2. 일치하는 데이터 필터링 및 구축
+    table_data = []
 
-    # 헤더 출력
-    print(
-        pad("   예약번호", 21),
-        pad("환자번호", 14),
-        pad("의료진번호", 17),
-        pad("예약날짜", 16),
-        pad("예약시간", 15),
-        pad("급여", 12),
-        pad("비급여", 14),
-        pad("총금액", 14),
-        pad("상태", 10)
-    )
-
-    print(line)
-
-    # 조회 결과 확인 변수
-    found = False
-
-    # 입력한 환자번호와 일치하는 예약 조회
+    # 첫 번째 행(헤더)을 제외하고 데이터 순회 (index 1번부터)
     for row in reader[1:]:
-        if row[1] == patient_no:
-            found = True
+        # row[1]은 '환자번호' 열입니다.
+        if row[1].strip() == patient_no:
+            # 금액 데이터 천 단위 콤마(,) 포맷팅
+            salary_paid = f"{int(row[5]):,}"
+            non_salary_paid = f"{int(row[6]):,}"
+            total_paid = f"{int(row[7]):,}"
 
-            print(
-                pad(row[0], 18),
-                pad(row[1], 13),
-                pad(row[2], 12),
-                pad(row[3], 16),
-                pad(row[4], 6),
-                pad(f"{int(row[5]):,}", 11, 'right') + ' ',
-                pad(f"{int(row[6]):,}", 11, 'right') + ' ',
-                pad(f"{int(row[7]):,}", 11, 'right') + '      ',
-                pad(row[8], 5)
-            )
+            table_data.append([
+                row[0],  # 예약번호
+                row[1],  # 환자번호
+                row[2],  # 의료진번호
+                row[3],  # 예약날짜
+                row[4],  # 예약시간
+                salary_paid,
+                non_salary_paid,
+                total_paid,
+                row[8]  # 상태
+            ])
 
-    print(line)
+    # 3. 정렬 방식 설정
+    col_align = ["center", "center", "center", "center", "center", "right", "right", "right", "center"]
 
-    # 조회 결과가 없는 경우
-    if not found:
+    # 4. 표 출력
+    print()
+    print("=" * 112)
+    print("환자별 예약 조회".center(112))
+    print("=" * 112)
+
+    # 일치하는 데이터가 하나도 없을 때
+    if not table_data:
         print("조회된 예약이 없습니다.")
+        print("=" * 112)
+    else:
+        # 데이터가 있으면 2번 grid 스타일로 출력
+        print(tabulate(
+            table_data,
+            headers=headers,
+            tablefmt="grid",
+            colalign=col_align
+        ))
 
 
 # 예약 수정
@@ -1673,34 +1685,296 @@ def department_doctor_manage_menu():
     print('0. 이전 메뉴')
     print('==================================\n')
 
+
+# 전체 진료과/의료진 조회
 def show_all_doctors():
-    print('\n======== 전체 의료진 조회 ========')
+    import csv
+    from tabulate import tabulate
 
-    # doctors.csv 전체 의료진 조회
+    # CSV 파일 읽기
+    try:
+        with open("doctors.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("\n[오류] doctors.csv 파일이 존재하지 않습니다.")
+        return
+
+    # 1. 헤더 정의
+    headers = [
+        "의료진번호", "이름", "진료과", "진료실번호",
+        "진료과전화번호", "진료요일", "진료시작시간", "진료종료시간", "근무상태"
+    ]
+
+    # 2. 데이터 행(Row) 구축 (공백 제거 적용)
+    table_data = []
+    for row in reader[1:]:
+        table_data.append([item.strip() for item in row])
+
+    # 3. 정렬 방식 설정 (모든 열 가운데 정렬)
+    # 총 9개 열의 정렬 방식을 지정합니다.
+    col_align = ["center"] * 9
+
+    # 4. grid 표 생성 (너비 계산을 위해 먼저 표를 텍스트로 생성)
+    table_string = tabulate(
+        table_data,
+        headers=headers,
+        tablefmt="grid",  # 2번 스타일 적용!
+        colalign=col_align
+    )
+
+    # 5. 표의 실제 가로 길이에 맞추어 타이틀 출력
+    # table_string의 첫 번째 줄(가로 테두리 선)의 길이를 기준으로 계산합니다.
+    actual_width = len(table_string.split('\n')[0])
+
+    print("\n" + "=" * actual_width)
+    print("전체 진료과/의료진 조회".center(actual_width))
+    print("=" * actual_width)
+    print(table_string)
 
 
+# 진료과별 의료진 조회
 def show_doctors_by_department_admin():
-    print('\n======== 진료과별 의료진 조회 ========')
+    import csv
+    from tabulate import tabulate
 
-    # 진료과 선택
-    # 해당 진료과 의료진 조회
+    # 조회할 진료과 입력
+    dept_name = input("\n조회할 진료과를 입력하세요 : ").strip()
+
+    # CSV 파일 읽기
+    try:
+        with open("doctors.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("\n[오류] doctors.cvs 파일을 찾을 수 없습니다.")
+        return
+
+    # 1. 헤더 정의
+    headers = ["의료진번호", "이름", "진료과", "진료실번호",
+               "진료과전화번호", "진료요일", "진료시작시간", "진료종료시간", "근무상태"
+               ]
+
+    # 2. 입력받은 진료과와 일치하는 데이터 필터링
+    table_data = []
+
+    for row in reader[1:]:
+        # row[2]는 '진료과' 열입니다. 공백을 제거한 후 입력값과 비교한다
+        if row[2].strip() == dept_name:
+            table_data.append([item.strip() for item in row])
+
+    # 3. 정렬 방식 설정 (모든 열 가운데 정렬)
+    col_align = ["center"] * 9
+
+    # 4. 조회 결과 처리 및 출력
+    if not table_data:
+        # 일치하는 진료과가 없을 때
+        print("\n" + "=" * 50)
+        print(f"[{dept_name}] 의료진 정보가 없습니다.".center(50))
+        print("=" * 50)
+    else:
+        # 표 생성 및 테두리 길이에 맞춰 타이틀 출력
+        table_string = tabulate(
+            table_data,
+            headers=headers,
+            tablefmt="grid",
+            colalign=col_align
+        )
+
+        actual_width = len(table_string.split('\n')[0])
+
+        print("\n" + "=" * actual_width)
+        print(f"[{dept_name}] 의료진 조회".center(actual_width))
+        print("=" * actual_width)
+        print(table_string)
 
 
+# 의료진 정보 수정
 def update_doctor():
-    print('\n======== 의료진 정보 수정 ========')
+    import csv
+    from tabulate import tabulate
 
-    # 수정할 의료진 검색
-    # 수정할 정보 선택
-    # doctors.csv 저장
+    # 1. 수정할 의료진 번호 입력받기
+    doctor_id = input("\n수정할 의료진번호를 입력하세요 (예: D01001) : ").strip()
+
+    # CSV 파일 전체 읽기
+    try:
+        with open("doctors.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("\n[오류] doctors.csv 파일이 존재하지 않습니다.")
+        return
+
+    # 헤더와 데이터 분리
+    headers = [h.strip() for h in reader[0]]
+    rows = reader[1:]
+
+    # 수정할 의료진 찾기
+    target_index = -1
+    for i, row in enumerate(rows):
+        # 행이 비어있거나 데이터가 제대로 안 채워진 경우 건너뜀
+        if not row:
+            continue
+        if row[0].strip() == doctor_id:
+            target_index = i
+            break
+
+    # 해당 의료진이 없는 경우
+    if target_index == -1:
+        print(f"\n[오류] 의료진번호 '{doctor_id}'에 해당하는 정보가 없습니다.")
+        return
+
+    # 기존 데이터 복사 (글자 쪼개짐 현상 완벽 방지)
+    target_row = rows[target_index]
+
+    # 만약 리스트가 아닌 단일 문자열로 읽혔다면 처리
+    if isinstance(target_row, str):
+        original_row = [item.strip() for item in target_row.split(',')]
+    else:
+        original_row = [str(item).strip() for item in target_row]
+
+    updated_row = list(original_row)  # 실제 '값'이 수정될 리스트
+
+    # 현재 정보 먼저 표로 보여주기
+    col_align = ["center"] * len(headers)
+    print("\n[현재 의료진 정보]")
+    print(tabulate([original_row], headers=headers, tablefmt="grid", colalign=col_align))
+
+    # 2. 수정할 데이터 항목 선택받기
+    print("\n[수정 가능 항목]")
+    print("1. 이름,  2. 진료과,  3. 진료실번호,  4. 진료과전화번호,  5. 진료요일,  6. 진료시작시간,  7. 진료종료시간,  8. 근무상태")
+
+    try:
+        choice = int(input("\n수정할 항목의 번호를 입력하세요 (1~8) : "))
+        if choice < 1 or choice > 8:
+            print("[오류] 1부터 8 사이의 번호를 입력해야 합니다.")
+            return
+    except ValueError:
+        print("[오류] 숫자만 입력 가능합니다.")
+        return
+
+    # 선택한 번호에 해당하는 열(Column) 이름과 현재 '값' 가져오기
+    field_name = headers[choice]
+    current_value = original_row[choice]
+
+    # 3. 새로운 데이터 '값' 입력받기
+    new_value = input(f"\n새로운 [{field_name}] 값 입력 (기존: {current_value}) -> ").strip()
+
+    if not new_value:
+        print("[취소] 입력된 값이 없어 수정을 취소합니다.")
+        return
+
+    # 기존 데이터 행의 해당 열 위치에 새로운 '값' 대입
+    updated_row[choice] = new_value
+
+    # 4. 최종 저장 여부 확인
+    print("\n" + "=" * 50)
+    print(" 변경 예정 정보 확인 ".center(50))
+    print("=" * 50)
+    print(f" 수정 항목 : {field_name}")
+    print(f" 기존 데이터: {current_value}  --->  변경 데이터: {new_value}")
+    print("=" * 50)
+
+    confirm = input("이대로 정보를 수정하여 저장하시겠습니까? (Y/N) : ").strip().upper()
+
+    if confirm == "Y":
+        # 원본 리스트 데이터 변경
+        rows[target_index] = updated_row
+
+        # CSV 파일 덮어쓰기
+        try:
+            with open("doctors.csv", "w", encoding="utf-8-sig", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(headers)
+                writer.writerows(rows)
+            print("\n[성공] 수정 사항이 파일에 정상적으로 반영되었습니다.")
+
+            # 최종 수정 완료된 표 출력
+            print("\n[최종 수정 완료 정보]")
+            print(tabulate([updated_row], headers=headers, tablefmt="grid", colalign=col_align))
+        except Exception as e:
+            print(f"\n[오류] 파일 저장 중 문제가 발생했습니다: {e}")
+    else:
+        print("\n[취소] 수정이 취소되었습니다. 파일은 변경되지 않았습니다.")
 
 
+# 의료진 삭제
 def delete_doctor():
-    print('\n======== 의료진 삭제 ========')
+    import csv
+    from tabulate import tabulate
 
-    # 삭제할 의료진 검색
-    # 삭제 여부 확인
-    # 근무상태 변경 또는 의료진 삭제
-    # doctors.csv 저장
+    # 1. 삭제할 의료진 번호 입력받기
+    doctor_id = input("\n삭제할 의료진번호를 입력하세요 (예: D01001) : ").strip()
+
+    # CSV 파일 전체 읽기
+    try:
+        with open("doctors.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("\n[오류] doctors.csv 파일이 존재하지 않습니다.")
+        return
+
+    if not reader:
+        print("\n[오류] 파일에 데이터가 없습니다.")
+        return
+
+    # [원천 차단] 읽어온 전체 데이터를 시작하자마자 깨끗한 리스트 형태로 파싱합니다.
+    cleaned_data = []
+    for row in reader:
+        if not row:
+            continue
+        # 한 줄이 통째로 문자열로 읽혔을 때 쉼표로 쪼갭니다.
+        if isinstance(row, str):
+            cleaned_data.append([item.strip() for item in row.split(',')])
+        elif len(row) == 1 and ',' in row[0]:
+            cleaned_data.append([item.strip() for item in row[0].split(',')])
+        else:
+            cleaned_data.append([str(item).strip() for item in row])
+
+    # 파싱된 데이터에서 헤더와 데이터 행 분리
+    headers = cleaned_data[0]
+    rows = cleaned_data[1:]
+
+    # 삭제할 의료진 찾기
+    target_index = -1
+    for i, row in enumerate(rows):
+        if row[0] == doctor_id:
+            target_index = i
+            break
+
+    # 해당 의료진이 없는 경우
+    if target_index == -1:
+        print(f"\n[오류] 의료진번호 '{doctor_id}'에 해당하는 정보가 없습니다.")
+        return
+
+    # 삭제 대상 데이터 확보
+    target_row = rows[target_index]
+
+    # 2. 삭제 대상 정보 표로 보여주기
+    col_align = ["center"] * len(headers)
+    print("\n[삭제 예정 의료진 정보]")
+    print(tabulate([target_row], headers=headers, tablefmt="grid", colalign=col_align))
+
+    # 3. 삭제 최종 확인
+    print("\n" + "!" * 100)
+    print("경고: 삭제된 데이터는 복구할 수 없습니다! ".center(90))
+    print("!" * 100)
+    confirm = input(f"정말 [{doctor_id}] 의료진 정보를 완전히 삭제하시겠습니까? (Y/N) : ").strip().upper()
+
+    if confirm == "Y":
+        # 데이터 리스트에서 제거
+        rows.pop(target_index)
+
+        # 4. CSV 파일 덮어쓰기 (깨끗하게 파싱된 리스트 형태를 그대로 저장하므로 파일이 망가지지 않음)
+        try:
+            with open("doctors.csv", "w", encoding="utf-8-sig", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(headers)  # 깨끗한 헤더 저장
+                writer.writerows(rows)  # 깨끗한 데이터 행들 저장
+            print(f"\n[성공] 의료진 [{doctor_id}] 정보가 정상적으로 삭제되었습니다.")
+        except Exception as e:
+            print(f"\n[오류] 파일 저장 중 문제가 발생했습니다: {e}")
+    else:
+        print("\n[취소] 삭제가 취소되었습니다. 파일은 변경되지 않았습니다.")
+
 
 '''============= 진료비/매출 조회 ============='''
 # 진료비/매출 조회 전체 흐름
