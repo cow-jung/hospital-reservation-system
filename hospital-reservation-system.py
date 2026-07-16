@@ -1793,7 +1793,7 @@ def update_doctor():
     from tabulate import tabulate
 
     # 1. 수정할 의료진 번호 입력받기
-    doctor_id = input("\n수정할 의료진번호를 입력하세요 (예: D00122) : ").strip()
+    doctor_id = input("\n수정할 의료진번호를 입력하세요 (예: D01001) : ").strip()
 
     # CSV 파일 전체 읽기
     try:
