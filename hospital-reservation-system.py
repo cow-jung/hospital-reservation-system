@@ -31,6 +31,8 @@
 import csv
 import re
 from getpass import getpass
+from tabnanny import check
+
 from tabulate import tabulate
 from wcwidth import wcswidth
 
@@ -998,72 +1000,145 @@ def search_reservation_by_patient():
 
 # 예약 수정
 def update_reservation():
-    print('\n======== 예약 수정 ========')
+    import csv
+
+    print("\n============================= 예약 수정 =============================")
 
     # 수정할 예약번호 입력
     reservation_no = input("수정할 예약번호를 입력하세요 : ")
 
-    # 파일읽기
+    # CSV 파일 읽기
     with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
         reader = list(csv.reader(file))
 
-        # 예약번호를 찾았는지 확인하는 변수
-        found = False
+    # 1. 수정할 예약 데이터 행(Row) 찾기
+    target_row = None
+    for row in reader[1:]:
+        if row[0].strip() == reservation_no.strip():  # 공백 제거 후 비교
+            target_row = row
+            break
 
-        # 헤더를 제외한 예약 데이터 검색
+    # 예약번호를 찾지 못한 경우 함수 종료
+    if target_row is None:
+        print("\n예약번호가 존재하지 않습니다.")
+        return
+
+    # 현재 예약 정보 출력
+    print("\n================ 현재 예약 정보 ================")
+    print(f"예약번호   : {target_row[0]}")
+    print(f"환자번호   : {target_row[1]}")
+    print(f"의료진번호 : {target_row[2]}")
+    print(f"예약날짜   : {target_row[3]}")
+    print(f"예약시간   : {target_row[4]}")
+    print("==============================================")
+
+    # 새로운 예약 날짜와 시간 입력
+    new_date = input("새 예약날짜를 입력하세요 (YYYY-MM-DD) : ").strip()
+    new_time = input("새 예약시간을 입력하세요 (HH:MM) : ").strip()
+
+    # 수정 여부 확인
+    check = input("\n정말 수정하시겠습니까? (Y/N) : ").upper().strip()
+
+    if check == "Y":
+        # 하이픈(-) 제거하여 YYYYMMDD 형태 만들기 (예: 2026-07-02 -> 20260702)
+        date_prefix = new_date.replace("-", "")
+
+        max_sequence = 0
+        # 전체 리스트를 돌며 새 날짜로 시작하는 예약번호 중 가장 큰 순번 찾기
         for row in reader[1:]:
+            if row[0] and "-" in row[0]:
+                parts = row[0].strip().split("-")
+                if parts[0] == date_prefix:
+                    try:
+                        seq = int(parts[1])
+                        if seq > max_sequence:
+                            max_sequence = seq
+                    except ValueError:
+                        pass
 
-            # 예약번호가 일치하면
-            if row[0] == reservation_no:
-                found = True
+        # 무조건 새 예약번호 생성 (최대 순번 + 1)
+        new_sequence = max_sequence + 1
+        new_reservation_no = f"{date_prefix}-{new_sequence:03d}"
 
-                # 현재 예약 정보 출력
-                print("\n================ 현재 예약 정보 ================")
-                print(f"예약번호   : {row[0]}")
-                print(f"환자번호   : {row[1]}")
-                print(f"의료진번호 : {row[2]}")
-                print(f"예약날짜   : {row[3]}")
-                print(f"예약시간   : {row[4]}")
-                print("==============================================")
+        print(f"\n[안내] 예약번호가 '{target_row[0]}'에서 '{new_reservation_no}'로 변경됩니다.")
 
-                # 새로운 예약 날짜와 시간 입력
-                new_date = input("새 예약날짜를 입력하세요 (YYYY-MM-DD) : ")
-                new_time = input("새 예약시간을 입력하세요 (HH:MM) : ")
+        # 데이터 최종 적용 (예약번호, 날짜, 시간 모두 무조건 갱신)
+        target_row[0] = new_reservation_no
+        target_row[3] = new_date
+        target_row[4] = new_time
 
-                # 수정 여부 확인
-                check = input("\n정말 수정하시겠습니까? (Y/N) : ").upper()
-
-                if check == "Y":
-                    # 날짜와 시간 수정
-                    row[3] = new_date
-                    row[4] = new_time
-
-                    print("\n예약이 수정되었습니다.")
-
-                else:
-                    print("\n예약 수정을 취소했습니다.")
-
-                break
-
-        # 예약번호를 찾지 못한 경우
-        if not found:
-            print("\n예약번호가 존재하지 않습니다.")
-            return
-
-        # 수정된 내용을 csv파일에 저장
+        # 3. 수정된 전체 데이터를 CSV 파일에 덮어쓰기
         with open("reservations_with_fee_breakdown.csv", "w", encoding="utf-8-sig", newline="") as file:
             writer = csv.writer(file)
             writer.writerows(reader)
 
+        print("\n예약이 수정되었습니다.")
 
+    else:
+        print("\n예약 수정을 취소했습니다.")
 
+# 예약 취소
 def cancel_reservation():
-    print('\n======== 예약 취소 ========')
+    import csv
+    print("\n============================= 예약 취소 =============================")
 
-    # 취소할 예약 검색
-    # 취소 여부 확인
-    # 예약상태를 취소로 변경
-    # reservation.csv 저장
+    reservation_cancel = input('취소할 예약번호를 입력하세요 : ').strip()
+
+    # 파일읽기
+    try:
+        with open("reservations_with_fee_breakdown.csv", "r", encoding="utf-8-sig") as file:
+            reader = list(csv.reader(file))
+    except FileNotFoundError:
+        print("\n[오류] reservations_with_fee_breakdown.csv 파일이 존재하지 않습니다.")
+        return
+
+    # 1. 취소할 예약 데이터의 '행 인덱스(위치)' 찾기
+    target_index = -1
+    for i in range(1, len(reader)):
+        if reader[i][0] == reservation_cancel:
+            target_index = i
+            break
+
+    # 예약번호를 찾지 못한 경우 함수 종료
+    if target_index == -1:
+        print("\n예약번호가 존재하지 않습니다.")
+        return
+
+    # 2. 현재 상태 검증 및 정보 출력 (9번째 컬럼 = 인덱스 8)
+    current_status = reader[target_index][8].strip()
+
+    if current_status == "예약취소":
+        print("\n[안내] 이미 취소된 예약입니다.")
+        return
+    elif current_status == "진료완료":
+        print("\n[안내] 이미 진료가 완료된 예약은 취소할 수 없습니다.")
+        return
+
+    print("\n================ 취소할 예약 정보 ================")
+    print(f"예약번호   : {reader[target_index][0]}")
+    print(f"환자번호   : {reader[target_index][1]}")
+    print(f"의료진번호 : {reader[target_index][2]}")
+    print(f"예약날짜   : {reader[target_index][3]}")
+    print(f"예약시간   : {reader[target_index][4]}")
+    print(f"현재상태   : {current_status}")
+    print("=================================================")
+
+    # 3. 최종 취소 확인 여부 질문
+    check = input("\n정말 예약을 취소하시겠습니까? (Y/N) : ").upper().strip()
+
+    if check == "Y":
+        # 원본 데이터의 '상태' 컬럼을 '예약취소'로 변경
+        reader[target_index][8] = "예약취소"
+
+        # 변경된 내용을 csv 파일에 덮어쓰기
+        with open("reservations_with_fee_breakdown.csv", "w", encoding="utf-8-sig", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(reader)
+
+        print("\n예약이 성공적으로 취소되었습니다.")
+    else:
+        print("\n예약 취소를 취소했습니다.")
+
 
 '''============= 진료과/의료진 조회 ============='''
 # 진료과/의료진 관리 전체 흐름
