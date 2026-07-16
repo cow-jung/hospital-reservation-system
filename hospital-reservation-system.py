@@ -225,7 +225,7 @@ def signup():
 
     # 주민등록번호 입력
     while True:
-        resident_number = input('주민등록번호를 입력하세요(000000-0) : ').strip()
+        resident_number = input('주민등록번호를 입력하세요(000000-0000000) : ').strip()
 
         if resident_number == '취소':
             print('회원가입을 취소합니다.\n')
