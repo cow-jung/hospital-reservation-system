@@ -937,8 +937,6 @@ def save_reservation(patient_id, doctor, date_str, time_str, reservations):
         '상태': '예약완료'
     }
 
-    fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
-
     # os.path.isfile(): 해당 경로에 파일이 실제로 존재하는지 확인
     file_path = 'reservations_total_only.csv'
     file_exists = os.path.isfile(file_path)
@@ -951,7 +949,7 @@ def save_reservation(patient_id, doctor, date_str, time_str, reservations):
             fieldnames = next(reader)
     else:
         # 파일이 없을 때만 기본 순서 사용 (CSV 파일의 실제 순서와 맞춤)
-        fieldnames = ['예약번호', '환자번호', '예약날짜', '의료진번호', '총금액', '예약시간', '상태']
+        fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '총금액', '상태']
 
     # 3. 데이터 추가 (동기화된 fieldnames 사용)
     with open(file_path, 'a', encoding='utf-8-sig', newline='') as file:
