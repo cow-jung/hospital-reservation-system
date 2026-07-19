@@ -1497,117 +1497,116 @@ def reservation_manage_menu():
     print('0. 이전 메뉴')
     print('==========================\n')
 
+
 import csv
 from tabulate import tabulate
 
-# ======================================================================
-# [공통 함수 1] 안전하게 CSV 파일을 읽어서 '정제된 딕셔너리 리스트'로 반환하는 함수
-# ======================================================================
-def read_csv_as_dict(filename):
+
+# ----------------------------------------------------------------------
+# [공통 함수 1] 안전하게 CSV 파일을 읽어서 '깨끗한 2차원 리스트'로 반환하는 함수
+# ----------------------------------------------------------------------
+def read_csv_safely(filename):
     try:
-        # utf-8-sig 인코딩을 사용하여 한글 깨짐 및 앞부분 공백을 차단합니다.
         with open(filename, "r", encoding="utf-8-sig") as file:
-            # csv.DictReader는 첫 줄(헤더)을 Key로, 아래 데이터들을 Value로 하는 딕셔너리로 읽어옵니다.
-            reader = csv.DictReader(file)
+            reader = list(csv.reader(file))
+        if not reader:
+            return []
 
-            # 헤더 이름의 앞뒤 공백을 제거하여 키값 정제
-            reader.fieldnames = [field.strip() for field in reader.fieldnames] if reader.fieldnames else []
+        cleaned_data = []
+        for row in reader:
+            if not row:  # 데이터가 아예 없는 빈 줄은 제외합니다.
+                continue
 
-            cleaned_data = []
-            for row in reader:
-                # 각 행 딕셔너리의 키와 값 모두 앞뒤 공백을 완벽히 제거합니다.
-                cleaned_row = {key.strip(): val.strip() for key, val in row.items() if key is not None}
-                cleaned_data.append(cleaned_row)
-
-            return cleaned_data, reader.fieldnames
-
+            # [깨짐 방지 패치] 한 행이 통째로 뭉쳐서 하나의 문자열로 읽힌 경우
+            if isinstance(row, str):
+                cleaned_data.append([item.strip() for item in row.split(',')])
+            # 행 데이터가 리스트이지만 원소가 단 하나이고 그 안에 쉼표가 가득할 경우
+            elif len(row) == 1 and ',' in row[0]:
+                cleaned_data.append([item.strip() for item in row[0].split(',')])
+            # 정상적인 리스트 형태로 잘 읽힌 경우, 양옆의 공백만 깔끔하게 제거합니다.
+            else:
+                cleaned_data.append([str(item).strip() for item in row])
+        return cleaned_data
     except FileNotFoundError:
-        return [], []
+        return []
 
 
-# ======================================================================
-# [공통 함수 2] 딕셔너리를 활용해 환자이름 및 의료진 정보 매핑 사전을 만드는 함수
-# ======================================================================
+# ----------------------------------------------------------------------
+# [공통 함수 2] 이름 매핑을 위해 {환자번호: 환자이름}, {의료진번호: (이름, 진료과)} 딕셔너리를 만드는 함수
+# ----------------------------------------------------------------------
 def get_info_maps():
-    # 1. user.csv에서 환자 정보 맵핑 구성
-    # user.csv는 유저번호(첫 번째 열), 실제 이름(세 번째 열)이 포함된 구조입니다.
-    patient_data, patient_fields = read_csv_as_dict("user.csv")
+    # 1. user.csv 파일 분석 (환자 정보)
+    patient_rows = read_csv_safely("user.csv")
     patient_map = {}
+    if patient_rows:
+        # 테이블 첫 줄(헤더)을 제외하고 데이터 행을 순회합니다.
+        for p in patient_rows[1:]:
+            # 스크린샷 대조 결과: 0번 열은 '환자번호', 3번 열은 '이름'(4번째 열)
+            if len(p) >= 4:
+                # { 'P000001': '김민수' } 형태로 키와 값을 딕셔너리에 맵핑합니다.
+                patient_map[p[0]] = p[3]  # ◀ 3번 인덱스로 환자 진짜 이름을 정확하게 매핑!
 
-    if patient_data and len(patient_fields) >= 3:
-        # 딕셔너리의 실제 열 이름을 fieldnames에서 추출합니다.
-        key_field = patient_fields[0]    # 1번째 열 이름 (예: '환자번호' 혹은 '유저번호')
-        name_field = patient_fields[3]   # 3번째 열 이름 (예: '이름' 혹은 '환자이름')
-
-        for p in patient_data:
-            # { 'P10239': '홍길동' } 구조로 딕셔너리를 만듭니다.
-            patient_map[p[key_field]] = p[name_field]
-
-    # 2. doctors.csv에서 의료진 정보 맵핑 구성
-    doctor_data, _ = read_csv_as_dict("doctors.csv")
+    # 2. doctors.csv 파일 분석 (의료진 정보)
+    doctor_rows = read_csv_safely("doctors.csv")
     doctor_map = {}
-
-    if doctor_data:
-        for d in doctor_data:
-            # d['의료진번호']를 Key로 하고, (이름, 진료과) 튜플을 Value로 구성합니다.
-            doctor_map[d['의료진번호']] = (d['이름'], d['진료과'])
+    if doctor_rows:
+        # 의료진 첫 줄(헤더)을 제외하고 순회합니다.
+        for d in doctor_rows[1:]:
+            # 스크린샷 대조 결과: 0번은 의료진번호, 1번은 이름, 2번은 진료과
+            if len(d) >= 3:
+                # { 'D01002': ('이수진', '내과') } 형태로 튜플로 묶어 사전에 저장합니다.
+                doctor_map[d[0]] = (d[1], d[2])
 
     return patient_map, doctor_map
 
 # 전체 조회
 def show_all_reservations():
-    reservations, _ = read_csv_as_dict("reservations_with_fee_breakdown.csv")
+    # 예약 정보 원본 데이터를 읽어오기
+    reservations = read_csv_safely("reservations_with_fee_breakdown.csv")
     if not reservations:
         print("\n[오류] 예약 데이터를 찾을 수 없습니다.")
         return
 
+    # 환자이름과 의료진이름이 들어있는 매핑 사전을 불러온다.
     patient_map, doctor_map = get_info_maps()
 
-    # 가로가 컴팩트하게 정리된 최종 표 헤더 정의
+    # 환자/의료진 이름 및 진료과가 추가된 최종 출력 헤더 구성
     headers = ["예약번호", "환자번호", "환자이름", "의료진번호", "의료진이름", "진료과", "예약날짜", "예약시간", "상태"]
     table_data = []
 
-    for r in reservations:
-        status = r.get('상태', '')
+    # 예약 내역을 한 행씩 분석합니다.
+    for r in reservations[1:]:
+        status = r[8]  # 예약 데이터의 8번 인덱스는 '상태' 컬럼입니다.
 
-        # '예약완료' 또는 '완료' 상태인 데이터만 출력 대상으로 잡습니다.
-        if status in ["예약완료", "완료"]:
-            p_no = r.get('환자번호', '')
-            d_no = r.get('의료진번호', '')
+        # '예약완료' 상태인 예약건만 필터링합니다.
+        if status in ["예약완료"]:
+            p_no = r[1]  # 환자번호 (1번 인덱스)
+            d_no = r[2]  # 의료진번호 (2번 인덱스)
 
-            # 인덱스가 아니라 딕셔너리 Key로 정확하게 조인(Join) 처리
+            # 매핑 사전에서 예약 내역의 번호와 매칭되는 진짜 이름을 찾아냅니다. (없으면 미등록 표시)
             p_name = patient_map.get(p_no, "미등록")
             d_info = doctor_map.get(d_no, ("미등록", "미등록"))
 
+            # 가공 완료된 행 데이터를 최종 표 데이터 리스트에 순서대로 담습니다. (총금액 r[7] 제외)
             table_data.append([
-                r.get('예약번호', ''),
-                p_no,
-                p_name,
-                d_no,
-                d_info[0],  # 의료진 이름
-                d_info[1],  # 진료과
-                r.get('예약날짜', ''),
-                r.get('예약시간', ''),
-                status
+                r[0], p_no, p_name, d_no, d_info[0], d_info[1], r[3], r[4], status
             ])
 
+    # 예약 완료된 건이 하나도 없는 경우 알림 후 종료
     if not table_data:
         print("\n[알림] '예약완료' 상태의 예약 정보가 없습니다.")
         return
 
-    col_align = ["center"] * len(headers)
-
-    print("\n" + "=" * 105)
-    print("전체 예약 완료 내역 조회".center(105))
-    print("=" * 105)
-    print(tabulate(table_data, headers=headers, tablefmt="grid", colalign=col_align))
+    # 모든 열의 정렬을 깔끔하게 가운데 정렬로 통일하여 표를 출력합니다.
+    print("\n" + "=" * 120)
+    print("전체 예약 완료 내역 조회".center(120))
+    print("=" * 120)
+    print(tabulate(table_data, headers=headers, tablefmt="grid", colalign=["center"] * len(headers)))
 
 
 # 환자별 조회
 def search_reservation_by_patient():
-    from tabulate import tabulate
-
-    # 조회할 환자번호를 입력받습니다.
+    # 조회 대상을 추려내기 위해 환자번호를 입력받습니다.
     patient_no = input("\n조회할 환자번호를 입력하세요 : ").strip()
 
     reservations = read_csv_safely("reservations_with_fee_breakdown.csv")
@@ -1615,61 +1614,49 @@ def search_reservation_by_patient():
         print("\n[오류] 예약 데이터를 찾을 수 없습니다.")
         return
 
-    # 이름 매핑 데이터를 가져옵니다.
     patient_map, doctor_map = get_info_maps()
 
-    # [수정] 총금액을 제외한 헤더 구성
     headers = ["예약번호", "환자번호", "환자이름", "의료진번호", "의료진이름", "진료과", "예약날짜", "예약시간", "상태"]
     table_data = []
 
     for r in reservations[1:]:
-        # 입력된 환자번호와 일치하고, 상태가 '예약완료' 또는 '완료'인 데이터만 통과시킵니다.
-        if r[1] == patient_no and r[8] in ["예약완료", "완료"]:
+        # [핵심 필터] 입력된 환자번호와 일치하고, 동시에 상태가 '예약완료'인 건만 골라냅니다.
+        if r[1] == patient_no and r[8] in ["예약완료"]:
             p_no = r[1]
             d_no = r[2]
 
             p_name = patient_map.get(p_no, "미등록")
             d_info = doctor_map.get(d_no, ("미등록", "미등록"))
-            d_name = d_info[0]
-            dept = d_info[1]
 
-            # [수정] 총금액 데이터 제외 후 테이블 데이터 추가
             table_data.append([
-                r[0], p_no, p_name, d_no, d_name, dept, r[3], r[4], r[8]
+                r[0], p_no, p_name, d_no, d_info[0], d_info[1], r[3], r[4], r[8]
             ])
 
+    # 해당 환자의 예약완료 내역이 전혀 없는 경우
     if not table_data:
         print(f"\n[알림] 환자번호 '{patient_no}'의 '예약완료' 내역이 존재하지 않습니다.")
         return
 
-    # 모든 열 가운데 정렬
-    col_align = ["center"] * len(headers)
-
-    print("\n" + "=" * 105)
-    print(f"환자 [{patient_no}] 예약 완료 내역".center(105))
-    print("=" * 105)
-    print(tabulate(table_data, headers=headers, tablefmt="grid", colalign=col_align))
+    print("\n" + "=" * 120)
+    print(f"환자 [{patient_no}] 예약 완료 내역".center(120))
+    print("=" * 120)
+    print(tabulate(table_data, headers=headers, tablefmt="grid", colalign=["center"] * len(headers)))
 
 
 # 예약 수정
 def update_reservation():
-    import csv
-    from tabulate import tabulate
-
-    # 1. 수정할 예약번호 입력받기
+    # 수정할 예약번호 입력받기
     res_id = input("\n수정할 예약번호를 입력하세요 (예: 20260701-001) : ").strip()
 
-    # 예약 정보를 안전하게 로드합니다.
     reservations = read_csv_safely("reservations_with_fee_breakdown.csv")
     if not reservations:
         print("\n[오류] 예약 데이터를 찾을 수 없습니다.")
         return
 
-    # 원본 파일 저장을 위해 헤더와 데이터를 분리합니다.
     headers = reservations[0]
     rows = reservations[1:]
 
-    # 수정할 예약 행 찾기
+    # 대상을 수정하기 위해 몇 번째 리스트에 들어있는지 색인(Index) 조사
     target_index = -1
     for i, row in enumerate(rows):
         if row[0] == res_id:
@@ -1681,59 +1668,45 @@ def update_reservation():
         return
 
     original_row = rows[target_index]
-    updated_row = list(original_row)
+    updated_row = list(original_row)  # 안전하게 원본 데이터를 가공하기 위해 복제본 리스트 생성
 
-    # 이름 매핑 가져오기
+    # 이름 매핑 데이터 로드
     patient_map, doctor_map = get_info_maps()
     p_name = patient_map.get(original_row[1], "미등록")
     d_info = doctor_map.get(original_row[2], ("미등록", "미등록"))
-    d_name = d_info[0]
 
-    # 현재 정보 보여주기용 헤더 및 데이터 구성
+    # 사용자 편의를 위한 현재 보존 정보 출력
     view_headers = ["예약번호", "환자번호", "환자이름", "의료진번호", "의료진이름", "예약날짜", "예약시간", "상태"]
     view_row = [
         original_row[0], original_row[1], p_name,
-        original_row[2], d_name, original_row[3],
+        original_row[2], d_info[0], original_row[3],
         original_row[4], original_row[8]
     ]
 
     print("\n[현재 예약 정보]")
     print(tabulate([view_row], headers=view_headers, tablefmt="grid", colalign=["center"] * len(view_headers)))
 
-    # 2. 수정 항목 선택 (오직 날짜와 시간만 선택 가능!)
-    print("\n[수정 가능 항목]")
-    print("1. 예약날짜  2. 예약시간")
+    print("\n※ 변경을 원하지 않는 항목은 값을 입력하지 않고 [엔터]를 치면 기존 값이 유지됩니다.")
 
-    try:
-        choice = int(input("\n수정할 항목의 번호를 입력하세요 (1~2) : "))
-        if choice < 1 or choice > 2:
-            print("[오류] 1 또는 2를 선택해 주세요.")
-            return
-    except ValueError:
-        print("[오류] 숫자만 입력 가능합니다.")
-        return
+    # 새로운 날짜와 시간 입력받기
+    new_date = input(f"새로운 [예약날짜] 입력 (형식 YYYY-MM-DD, 기존: {original_row[3]}) -> ").strip()
+    new_time = input(f"새로운 [예약시간] 입력 (형식 00:00, 기존: {original_row[4]}) -> ").strip()
 
-    # 3. 항목별 새 값 입력받기 및 예약번호 자동 계산
-    if choice == 1:
-        # --- [예약날짜 변경 모드] ---
-        new_date = input(f"\n새로운 [예약날짜] 입력 (형식 YYYY-MM-DD, 기존: {original_row[3]}) -> ").strip()
-        if not new_date:
-            print("[취소] 입력 값이 없어 수정을 취소합니다.")
-            return
+    is_changed = False  # 실제 변동 사항 식별용 스위치 변수
+    change_logs = []  # 가독성을 위한 변경 내역 누적 리스트
 
-        # YYYY-MM-DD에서 대시(-)를 제거하여 YYYYMMDD 형태로 만듭니다.
+    # 날짜 변경 동시 처리 분석 파트
+    if new_date and new_date != original_row[3]:
         date_prefix = new_date.replace("-", "")
         if len(date_prefix) != 8 or not date_prefix.isdigit():
-            print("[오류] 날짜 형식이 올바르지 않습니다. (예: 2026-07-01)")
+            print("[오류] 날짜 형식이 올바르지 않아 수정을 중단합니다. (예: 2026-07-01)")
             return
 
-        # 변경하려는 날짜의 기존 예약들 중 가장 큰 순번을 구합니다.
+        # 신규 등록을 시도하려는 날짜에 소속된 최고 순번을 추적 및 연동 계산
         max_seq = 0
         for r in rows:
-            # 예: 예약번호가 "20260701-001" 인지 분석
             if "-" in r[0]:
                 part_date, part_seq = r[0].split("-")
-                # 변경하려는 날짜와 예약번호의 날짜 부분이 일치한다면
                 if part_date == date_prefix:
                     try:
                         seq_val = int(part_seq)
@@ -1742,59 +1715,57 @@ def update_reservation():
                     except ValueError:
                         continue
 
-        # 새로운 순번은 가장 큰 순번에 +1 해준 값입니다. (예: 001, 002 ...)
+        # 새 순번 배정 및 ID 조합 대입
         new_seq = max_seq + 1
-        new_res_id = f"{date_prefix}-{new_seq:03d}"  # 3자리 숫자로 변환
+        new_res_id = f"{date_prefix}-{new_seq:03d}"
 
-        # 원본 데이터 업데이트 (예약번호와 예약날짜 동시에 갱신!)
-        updated_row[0] = new_res_id
-        updated_row[3] = new_date
-        field_name = "예약날짜 및 예약번호"
-        current_value = f"{original_row[3]} (예약번호: {original_row[0]})"
-        display_new_value = f"{new_date} (예약번호: {new_res_id})"
+        updated_row[0] = new_res_id  # 예약번호 방(0번) 업데이트
+        updated_row[3] = new_date  # 예약날짜 방(3번) 업데이트
 
+        change_logs.append(f"  - 예약날짜 변경: {original_row[3]} ➔ {new_date}")
+        change_logs.append(f"  - 예약번호 연동: {original_row[0]} ➔ {new_res_id}")
+        is_changed = True
     else:
-        # --- [예약시간 변경 모드] ---
-        new_time = input(f"\n새로운 [예약시간] 입력 (기존: {original_row[4]}) -> ").strip()
-        if not new_time:
-            print("[취소] 입력 값이 없어 수정을 취소합니다.")
-            return
+        new_date = original_row[3]  # 공백 엔터 입력 시 기존 상태 유지
 
-        updated_row[4] = new_time
-        field_name = "예약시간"
-        current_value = original_row[4]
-        display_new_value = new_time
+    # 시간 변경 처리 파트
+    if new_time and new_time != original_row[4]:
+        updated_row[4] = new_time  # 예약시간 방(4번) 업데이트
+        change_logs.append(f"  - 예약시간 변경: {original_row[4]} ➔ {new_time}")
+        is_changed = True
+    else:
+        new_time = original_row[4]  # 공백 엔터 입력 시 기존 상태 유지
 
-    # 4. 수정 완료 미리보기용 임시 데이터 구성
+    # 유저가 두 항목 모두 변경값 없이 그냥 엔터를 친 상황 필터링
+    if not is_changed:
+        print("\n[알림] 변경된 내용이 없어 수정을 취소합니다.")
+        return
+
+    # 대조 완료 확정본 테이블 데이터 세팅
     new_p_name = patient_map.get(updated_row[1], "미등록")
     new_d_info = doctor_map.get(updated_row[2], ("미등록", "미등록"))
-    new_d_name = new_d_info[0]
 
     updated_view_row = [
         updated_row[0], updated_row[1], new_p_name,
-        updated_row[2], new_d_name, updated_row[3],
+        updated_row[2], new_d_info[0], updated_row[3],
         updated_row[4], updated_row[8]
     ]
 
-    # 변경 대조 화면 출력
     print("\n" + "=" * 60)
     print(" 변경 예정 예약 정보 ".center(60))
     print("=" * 60)
-    print(f" 수정 항목 : {field_name}")
-    print(f" 기존 데이터: {current_value}")
-    print(f" 변경 데이터: {display_new_value}")
+    print("\n".join(change_logs))  # 무엇이 수정되었는지 직관적으로 출력해줌
     print("=" * 60)
 
-    # 5. 최종 확정 및 파일 저장
     confirm = input("이대로 예약 정보를 수정하시겠습니까? (Y/N) : ").strip().upper()
     if confirm == "Y":
-        rows[target_index] = updated_row
+        rows[target_index] = updated_row  # 준비해둔 신규 행 데이터 패치
         try:
             with open("reservations_with_fee_breakdown.csv", "w", encoding="utf-8-sig", newline="") as file:
                 writer = csv.writer(file)
-                writer.writerow(headers)
+                writer.writerow(headers)  # 급여, 비급여가 유지되는 원본 헤더 그대로 덮어쓰기
                 writer.writerows(rows)
-            print("\n[성공] 예약 정보가 성공적으로 수정되었습니다.")
+            print("\n[성공] 예약 날짜와 시간이 한 번에 안전하게 수정 완료되었습니다.")
             print("\n[최종 수정 완료 정보]")
             print(tabulate([updated_view_row], headers=view_headers, tablefmt="grid",
                            colalign=["center"] * len(view_headers)))
@@ -1805,23 +1776,17 @@ def update_reservation():
 
 # 예약 취소
 def cancel_reservation():
-    import csv
-    from tabulate import tabulate
+    res_id = input("\n취소 처리할 예약번호를 입력하세요 (예: 20260701-001) : ").strip()
 
-    # 1. 삭제할 예약번호 입력받기
-    res_id = input("\n삭제할 예약번호를 입력하세요 (예: R202607010) : ").strip()
-
-    # 예약 정보를 안전하게 로드합니다.
     reservations = read_csv_safely("reservations_with_fee_breakdown.csv")
     if not reservations:
         print("\n[오류] 예약 데이터를 찾을 수 없습니다.")
         return
 
-    # 헤더와 데이터를 나눕니다.
     headers = reservations[0]
     rows = reservations[1:]
 
-    # 삭제할 예약 행의 인덱스를 찾습니다.
+    # 취소 타겟 행 위치 추적 색인
     target_index = -1
     for i, row in enumerate(rows):
         if row[0] == res_id:
@@ -1834,44 +1799,41 @@ def cancel_reservation():
 
     target_row = rows[target_index]
 
-    # user.csv와 doctors.csv에서 이름 정보를 가져옵니다.
+    # 이중 조작 방지 패치 (이미 예약취소된 데이터라면 조기 차단)
+    if target_row[8] == "예약취소":
+        print(f"\n[알림] 예약번호 [{res_id}]는 이미 '예약취소' 처리가 반영된 건입니다.")
+        return
+
     patient_map, doctor_map = get_info_maps()
     p_name = patient_map.get(target_row[1], "미등록")
     d_info = doctor_map.get(target_row[2], ("미등록", "미등록"))
-    d_name = d_info[0]
 
-    # 2. 삭제 타겟 미리보기 테이블 구성 (총금액 제외, 환자이름/의료진이름 포함)
     view_headers = ["예약번호", "환자번호", "환자이름", "의료진번호", "의료진이름", "예약날짜", "예약시간", "상태"]
     view_row = [
         target_row[0], target_row[1], p_name,
-        target_row[2], d_name, target_row[3],
+        target_row[2], d_info[0], target_row[3],
         target_row[4], target_row[8]
     ]
 
-    print("\n[삭제 대상 예약 정보]")
+    print("\n[취소 대상 예약 정보 확인]")
     print(tabulate([view_row], headers=view_headers, tablefmt="grid", colalign=["center"] * len(view_headers)))
 
-    # 3. 영구 삭제 전 최종 서명 검사
-    print("\n" + "!" * 50)
-    print(" 경고: 삭제된 예약은 복원할 수 없습니다! ".center(50))
-    print("!" * 50)
-    confirm = input(f"정말 [{res_id}] 예약을 완전히 삭제하시겠습니까? (Y/N) : ").strip().upper()
+    confirm = input(f"\n정말 [{res_id}] 예약을 완전히 취소 상태로 변경하시겠습니까? (Y/N) : ").strip().upper()
 
     if confirm == "Y":
-        # 데이터 리스트에서 대상 행 완전 제거
-        rows.pop(target_index)
+        # 8번방(상태 컬럼) 데이터를 '예약취소'로 변경
+        rows[target_index][8] = "예약취소"
 
         try:
-            # 원본 헤더 및 행 저장
             with open("reservations_with_fee_breakdown.csv", "w", encoding="utf-8-sig", newline="") as file:
                 writer = csv.writer(file)
                 writer.writerow(headers)
                 writer.writerows(rows)
-            print(f"\n[성공] 예약번호 [{res_id}]가 파일에서 영구 삭제되었습니다.")
+            print(f"\n[성공] 예약번호 [{res_id}]가 영구 보존 데이터 필드 내에서 '예약취소' 상태로 전환되었습니다.")
         except Exception as e:
             print(f"\n[오류] 파일 반영 중 에러 발생: {e}")
     else:
-        print("\n[취소] 삭제가 취소되었습니다.")
+        print("\n[취소] 취소 처리가 중단되었으며 데이터 원본은 유지됩니다.")
 
 
 '''============= 진료과/의료진 조회 ============='''
