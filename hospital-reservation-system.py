@@ -348,14 +348,14 @@ def user_view(current_user):
             print('올바른 메뉴 번호를 입력하세요.\n')
 
 def user_menu(current_user): # 사용자 로그인 시 메뉴
-    print('\n======== 병원 예약 관리 ========')
+    print('\n======= 병원 예약 관리 =======')
     print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
     print('1. 진료과 조회')
     print('2. 예약하기')
     print('3. 내 예약 관리')
     print('4. 진료 이력 조회')
     print('5. 로그아웃')
-    print('=============================\n')
+    print('==============================\n')
 
 
 '''============= 진료과/의료진 조회 ============='''
@@ -807,7 +807,7 @@ def print_calendar(year, month, doctor, reservations):
     # 해당 월의 달력을 출력하고 예약 마감 날짜를 표시
     # calendar.monthcalendar(): 해당 월의 달력을 1주 단위로 묶어서 리스트 형태로 반환
     month_calendar = calendar.monthcalendar(year, month)
-    print(f"\n==================== {year}년 {month}월 예약 달력 ====================")
+    print(f"\n==================== {year}년 {month}월 예약 달력 ===================")
     print("                    월    화    수   목   금")
 
     fully_booked_dates = []
@@ -834,7 +834,7 @@ def print_calendar(year, month, doctor, reservations):
             print(f'                   {week_string}')
 
     print(f"\n                 * {RED}빨간색 숫자{RESET}: 예약 불가능한 날짜")
-    print(f"==============================================================")
+    print(f"=============================================================")
 
 def select_date(doctor, reservations):
     # 예약할 날짜를 달력에서 선택
@@ -1012,7 +1012,7 @@ def my_reservation_menu():
     print('2. 예약 변경')
     print('3. 예약 취소')
     print('0. 이전 메뉴')
-    print('============================\n')
+    print('==============================\n')
 
 # 내 예약 조회
 def show_my_reservations(current_user):
