@@ -171,7 +171,7 @@ def save_user(new_user):
 
 # 회원가입
 def signup():
-    print('\n======== 병원 예약 관리 ========')
+    print('\n======= 병원 예약 관리 =======')
     print('회원가입을 취소하려면 취소를 입력하세요.\n')
 
     # 아이디 입력
@@ -289,7 +289,7 @@ def signup():
     print(f'생년월일 : {birth_date}')
     print(f'성별     : {gender}')
     print(f'연락처   : {phone_number}')
-    print('=====================================\n')
+    print('======================================\n')
 
     while True:
         save_choice = input('회원가입 정보를 저장하시겠습니까? (Y/N) : ')
@@ -494,7 +494,7 @@ def reservation_menu():
     print('1. 진료과로 예약')
     print('2. 과거 진료 이력으로 예약')
     print('\n0. 이전 메뉴')
-    print('===============================\n')
+    print('==============================\n')
 
 # 진료과로 예약
 def reserve_by_department(current_user):
@@ -807,7 +807,7 @@ def print_calendar(year, month, doctor, reservations):
     # 해당 월의 달력을 출력하고 예약 마감 날짜를 표시
     # calendar.monthcalendar(): 해당 월의 달력을 1주 단위로 묶어서 리스트 형태로 반환
     month_calendar = calendar.monthcalendar(year, month)
-    print(f"\n===================== {year}년 {month}월 예약 달력 =====================")
+    print(f"\n==================== {year}년 {month}월 예약 달력 ====================")
     print("                    월    화    수   목   금")
 
     fully_booked_dates = []
@@ -834,7 +834,7 @@ def print_calendar(year, month, doctor, reservations):
             print(f'                   {week_string}')
 
     print(f"\n                 * {RED}빨간색 숫자{RESET}: 예약 불가능한 날짜")
-    print(f"=============================================================")
+    print(f"==============================================================")
 
 def select_date(doctor, reservations):
     # 예약할 날짜를 달력에서 선택
@@ -897,11 +897,11 @@ def select_time(doctor, date_str, reservations):
     # 해당 날짜에 예약 가능한 시간대를 선택
     available_times = get_available_times(doctor, date_str, reservations)
 
-    print(f"\n================== {date_str} 예약 가능 시간 ==================")
+    print(f"\n================= {date_str} 예약 가능 시간 =================")
     for index, t in enumerate(available_times, 1):
         print(f"                         {index}. {t}")
     print("\n                         0. 이전 메뉴")
-    print(f"============================================================")
+    print(f"=============================================================")
 
     while True:
         try:
@@ -1076,7 +1076,7 @@ def modify_reservation(current_user):
     # 의사 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n======================== [{current_user['이름']}]님의 예약 변경 ========================")
+    print(f"\n====================== [{current_user['이름']}]님의 예약 변경 ======================")
     for index, record in enumerate(active_reservations, 1):
         doctor_info = doctor_dict.get(record['의료진번호'])
         if doctor_info:
