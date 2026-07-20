@@ -1052,13 +1052,13 @@ def modify_reservation(current_user):
     active_reservations = [record for record in reservations if record['환자번호'] == patient_id and record['상태'] == '예약완료']
 
     if not active_reservations:
-        print("\n수정할 수 있는 예약 내역이 없습니다.")
+        print("\n변경할 수 있는 예약 내역이 없습니다.")
         return
 
     # 의사 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n======================== [{current_user['이름']}]님의 예약 수정 ========================")
+    print(f"\n======================== [{current_user['이름']}]님의 예약 변경 ========================")
     for index, record in enumerate(active_reservations, 1):
         doctor_info = doctor_dict.get(record['의료진번호'])
         if doctor_info:
@@ -1070,7 +1070,7 @@ def modify_reservation(current_user):
     # 2. 수정할 예약 선택
     while True:
         try:
-            input_value = input("\n수정할 예약 번호를 선택하세요: ").strip()
+            input_value = input("\n변경할 예약 번호를 선택하세요: ").strip()
             if input_value == '0':
                 return None
             if not input_value:
@@ -1107,13 +1107,13 @@ def modify_reservation(current_user):
         break
 
     # 5. 변경 상세 확인 및 덮어쓰기
-    print(f"\n====================== [예약 수정 상세] ======================")
+    print(f"\n====================== [예약 변경 상세] ======================")
     print(f"기존 예약: {target_reservation['예약날짜']} {target_reservation['예약시간']}")
     print(f"변경 예약: {new_date} {new_time}")
     print(f"===========================================================")
 
     while True:
-        confirm = input("\n위 일정으로 예약을 수정하시겠습니까? (Y/N) > ").strip().upper()
+        confirm = input("\n위 일정으로 예약을 변경하시겠습니까? (Y/N) > ").strip().upper()
 
         if confirm == 'Y':
             # 전체 reservations 리스트 안에 있는 타겟 예약의 데이터만 새롭게 변경
@@ -1123,11 +1123,11 @@ def modify_reservation(current_user):
             # 변경된 전체 리스트를 CSV에 덮어씀
             update_reservations_csv(reservations)
 
-            print("\n예약 수정이 정상적으로 완료되었습니다. 이전 메뉴로 돌아갑니다.")
+            print("\n예약 변경이 정상적으로 완료되었습니다. 이전 메뉴로 돌아갑니다.")
             return True
 
         elif confirm == 'N':
-            print("\n예약 수정이 취소되었습니다. 이전 메뉴로 돌아갑니다.")
+            print("\n예약 변경이 취소되었습니다. 이전 메뉴로 돌아갑니다.")
             return False
 
         else:
