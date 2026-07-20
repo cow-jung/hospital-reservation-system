@@ -494,7 +494,7 @@ def reservation_menu():
     print('1. 진료과로 예약')
     print('2. 과거 진료 이력으로 예약')
     print('\n0. 이전 메뉴')
-    print('============================\n')
+    print('=============================\n')
 
 # 진료과로 예약
 def reserve_by_department(current_user):
@@ -573,21 +573,29 @@ def reserve_by_history(current_user):
 
     # 출력 및 선택을 위해 리스트에 저장
     display_list = []
-    for index, record in enumerate(history_records, 1):
+
+    # enumerate 대신 직접 번호를 세는 변수(display_index)를 만듭니다.
+    display_index = 1
+
+    for record in history_records:
         doctor_info_id = record['의료진번호']
         doctor_info = doctor_dict.get(doctor_info_id)
 
-        # 만약 의료진 정보가 있다면 내역에 추가
+        # 만약 의료진 정보가 '정상적으로 존재하는 경우'에만 번호표를 부여하고 출력합니다!
         if doctor_info:
             date = record['예약날짜']
             department_name = doctor_info['진료과']
             doctor_info_name = doctor_info['이름']
 
             display_list.append(doctor_info)
-            print(f"{index}. 진료과: {department_name} / 의료진: {doctor_info_name} / 진료 날짜: {date}")
+            # display_index를 사용하여 화면에 출력합니다.
+            print(f"{display_index}. 진료과: {department_name} / 의료진: {doctor_info_name} / 진료 날짜: {date}")
+
+            # 출력이 성공했을 때만 다음 번호표로 숫자를 1 올립니다.
+            display_index += 1
 
     print("\n0. 이전 메뉴")
-    print("==============================================================")
+    print("===============================================================")
 
     # 4. 예약할 항목 선택
     while True:
@@ -1073,7 +1081,7 @@ def modify_reservation(current_user):
         doctor_info = doctor_dict.get(record['의료진번호'])
         if doctor_info:
             print(
-                f"{index}. [예약번호: {record['예약번호']}] {doctor_info['진료과']} {doctor_info['이름']} 원장 / 기존 예약: {record['예약날짜']} {record['예약시간']}")
+                f"{index}. {doctor_info['진료과']} {doctor_info['이름']} 원장 / 기존 예약: {record['예약날짜']} {record['예약시간']}")
     print("\n0. 이전 메뉴로 돌아가기")
     print(f"====================================================================")
 
@@ -1157,11 +1165,11 @@ def cancel_my_reservation(current_user):
             reservations.append(reservation)
 
 
-        reservation_number = input('취소할 예약번호 : ')
+        reservation_number = input('취소할 예약번호 : ').strip()
         is_found = False
 
         for reservation in reservations:
-            if reservation['예약번호'] == reservation_number and reservation['환자번호']==current_user['환자번호']:
+            if reservation['예약번호'].strip() == reservation_number and reservation['환자번호']==current_user['환자번호']:
                 reservation['상태'] ='예약취소'
                 print(current_user['이름'], '님의 예약을 취소합니다.')
                 is_found = True
