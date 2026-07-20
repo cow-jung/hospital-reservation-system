@@ -1157,11 +1157,11 @@ def cancel_my_reservation(current_user):
             reservations.append(reservation)
 
 
-        reservation_number = input('취소할 예약번호 : ')
+        reservation_number = input('취소할 예약번호 : ').strip()
         is_found = False
 
         for reservation in reservations:
-            if reservation['예약번호'] == reservation_number and reservation['환자번호']==current_user['환자번호']:
+            if reservation['예약번호'].strip() == reservation_number and reservation['환자번호']==current_user['환자번호']:
                 reservation['상태'] ='예약취소'
                 print(current_user['이름'], '님의 예약을 취소합니다.')
                 is_found = True
