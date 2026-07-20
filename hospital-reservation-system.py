@@ -348,14 +348,14 @@ def user_view(current_user):
             print('올바른 메뉴 번호를 입력하세요.\n')
 
 def user_menu(current_user): # 사용자 로그인 시 메뉴
-    print('\n======== 병원 예약 관리 ========')
+    print('\n======= 병원 예약 관리 =======')
     print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
     print('1. 진료과 조회')
     print('2. 예약하기')
     print('3. 내 예약 관리')
     print('4. 진료 이력 조회')
     print('5. 로그아웃')
-    print('=============================\n')
+    print('==============================\n')
 
 
 '''============= 진료과/의료진 조회 ============='''
@@ -753,12 +753,43 @@ def select_doctor(doctors, department):
         print("현재 해당 진료과에 예약 가능한 의료진이 없습니다.")
         return None
 
-    print(f"\n======================= {department} 의료진 선택 ========================")
+    # 표 데이터를 담을 리스트
+    table_data = []
+
     for index, doctor_info in enumerate(available_doctors, 1):
-        print(
-            f"{index}. {doctor_info['이름']} (진료요일: {doctor_info['진료요일']} / 진료시간: {doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']})")
-    print("\n0. 이전 메뉴")
-    print(f"=================================================================")
+        # 긴 요일 문자열을 깔끔하게 축약 (예: 월,화,수,목,금 -> 월~금)
+        working_days = doctor_info['진료요일'].replace('월,화,수,목,금', '월~금')
+        working_time = f"{doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']}"
+
+        table_data.append([
+            index,
+            doctor_info['이름'],
+            working_days,
+            working_time
+        ])
+
+    # 표 출력 로직
+    if table_data:
+        table = tabulate(
+            table_data,
+            headers=['번호', '의료진', '진료 요일', '진료 시간'],
+            tablefmt='grid',
+            disable_numparse=True,
+            colalign=('center', 'center', 'center', 'center')
+        )
+
+        # 표의 테두리 길이를 계산하여 상하단 디자인을 맞춥니다.
+        first_line = table.splitlines()[0]
+        table_width = wcswidth(first_line)
+        title = f"🩺 {department} 의료진 선택"
+
+        print()
+        print('=' * table_width)
+        print(center_by_width(title, table_width))
+        print('=' * table_width)
+        print(table)
+        print(center_by_width("0. 이전 메뉴", table_width))
+        print('=' * table_width)
 
     while True:
         try:
@@ -767,10 +798,13 @@ def select_doctor(doctors, department):
                 return None
             if not value:
                 raise ValueError("공백 입력은 불가합니다.")
+
             choice = int(value)
             if not (1 <= choice <= len(available_doctors)):
                 raise ValueError("범위를 벗어난 번호입니다.")
+
             return available_doctors[choice - 1]
+
         except ValueError as error:
             if "invalid literal" in str(error):
                 print("오류: 문자 입력은 불가합니다. 숫자로만 입력해주세요.")
@@ -1034,7 +1068,7 @@ def my_reservation_menu():
     print('2. 예약 변경')
     print('3. 예약 취소')
     print('0. 이전 메뉴')
-    print('============================\n')
+    print('==============================\n')
 
 # 내 예약 조회
 def show_my_reservations(current_user):
