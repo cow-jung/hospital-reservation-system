@@ -9,7 +9,7 @@ import os
 from tabulate import tabulate
 
 from part_common import (
-    DOCTOR_CSV, RESERVATION_CSV,
+    USER_CSV, DOCTOR_CSV, RESERVATION_CSV,
     clear_screen, pause, print_box, safe_width, center_by_width,
 )
 
@@ -634,14 +634,14 @@ def my_reservation(current_user):
     while True:
         my_reservation_menu()
 
-        choice = input('메뉴를 선택하세요 > ')
+        choice = input('메뉴를 선택하세요 > ').strip()
 
         if choice == '1':
             show_my_reservations(current_user)
             pause()
 
         elif choice == '2':
-            modify_reservation(current_user) # 수정 전 변수명: update_reservation(current_user)
+            modify_reservation(current_user)
             pause()
 
         elif choice == '3':
@@ -658,22 +658,40 @@ def my_reservation(current_user):
 
 def my_reservation_menu():
     clear_screen()
+    print()
+
     lines = [
         '1. 예약 조회',
         '2. 예약 변경',
         '3. 예약 취소',
         '0. 이전 메뉴'
     ]
+
     print_box(lines, title='내 예약 관리')
     print()
 
 # 내 예약 조회
 
 def show_my_reservations(current_user):
-    print('\n======== 예약 조회 ========')
+    doctors = {}
 
-    # 예약 조회 결과가 있는지 확인하기 위한 변수
-    found = False
+    try:
+        with open(
+            DOCTOR_CSV,
+            'r',
+            encoding='utf-8-sig',
+            newline=''
+        ) as file:
+            reader = csv.DictReader(file)
+
+            for doctor in reader:
+                doctors[doctor['의료진번호']] = doctor
+
+    except FileNotFoundError:
+        print(f'{DOCTOR_CSV} 파일을 찾을 수 없습니다.')
+        return
+
+    my_reservations = []
 
     try:
         with open(
@@ -684,56 +702,113 @@ def show_my_reservations(current_user):
         ) as file:
             reader = csv.DictReader(file)
 
-            print(f"{current_user['이름']}님의 예약을 조회합니다.\n")
-
             for reservation in reader:
                 if (
-                    reservation['환자번호'] == current_user['환자번호']
-                    and reservation['상태'] == '예약완료'
+                    reservation.get('환자번호', '').strip()
+                    == current_user['환자번호'].strip()
+                    and reservation.get('상태', '').strip()
+                    == '예약완료'
                 ):
-                    found = True
-
-                    print('예약번호 :', reservation['예약번호'])
-                    print('환자번호 :', reservation['환자번호'])
-                    print('의료진번호 :', reservation['의료진번호'])
-                    print('예약날짜 :', reservation['예약날짜'])
-                    print('예약시간 :', reservation['예약시간'])
-                    print('총금액 :', reservation['총금액'])
-                    print('상태 :', reservation['상태'])
-                    print()
+                    my_reservations.append(reservation)
 
     except FileNotFoundError:
-        print('예약 파일을 찾을 수 없습니다.\n')
+        print(f'{RESERVATION_CSV} 파일을 찾을 수 없습니다.')
         return
 
-    # 반복문이 끝난 뒤에도 found가 False라면 조회된 예약이 없는 것
-    if not found:
-        print('현재 예약완료 상태인 예약이 없습니다.\n')
+    if not my_reservations:
+        print(f"\n{current_user['이름']}님의 예약완료 상태인 예약이 없습니다.")
+        return
+
+    my_reservations.sort(
+        key=lambda x: x.get('예약번호', '')
+    )
+
+    table_data = []
+
+    for index, reservation in enumerate(my_reservations, start=1):
+        doctor = doctors.get(
+            reservation.get('의료진번호', ''),
+            {}
+        )
+
+        table_data.append([
+            index,
+            reservation.get('예약번호', '-'),
+            doctor.get('진료과', '정보없음'),
+            doctor.get('이름', '정보없음'),
+            reservation.get('예약날짜', '-'),
+            reservation.get('예약시간', '-'),
+            reservation.get('상태', '-')
+        ])
+
+    table = tabulate(
+        table_data,
+        headers=[
+            '번호',
+            '예약번호',
+            '진료과',
+            '진료의',
+            '예약날짜',
+            '예약시간',
+            '상태'
+        ],
+        tablefmt='grid',
+        disable_numparse=True,
+        colalign=(
+            'center',
+            'center',
+            'center',
+            'center',
+            'center',
+            'center',
+            'center'
+        )
+    )
+
+    first_line = table.splitlines()[0]
+    table_width = safe_width(first_line)
+    title = f"📋 [{current_user['이름']}]님의 예약 조회"
+
+    print()
+    print('=' * table_width)
+    print(center_by_width(title, table_width))
+    print('=' * table_width)
+    print(table)
+    print('=' * table_width)
 
 def update_reservations_csv(reservations):
-    # 수정된 전체 예약 목록을 CSV 파일에 덮어씀
-    import os
-    import csv
-
-    file_path = RESERVATION_CSV
+    default_fieldnames = [
+        '예약번호',
+        '환자번호',
+        '의료진번호',
+        '예약날짜',
+        '예약시간',
+        '진단명',
+        '비급여',
+        '급여',
+        '총금액',
+        '상태'
+    ]
 
     if reservations:
-        # .keys(): 딕셔너리에서 값(value)을 제외하고 이름표(key)만 가져옴
-        # list(): 뽑아온 키들을 리스트 형태로 변환 (예: ['예약번호', '환자번호', ...])
         fieldnames = list(reservations[0].keys())
     else:
-        fieldnames = ['예약번호', '환자번호', '의료진번호', '예약날짜', '예약시간', '진단명', '비급여', '급여', '총금액', '상태']
+        fieldnames = default_fieldnames
 
-    # 'w' 모드(Write): 파일의 기존 내용을 싹 지우고 처음부터 새로 작성 (덮어쓰기)
-    with open(file_path, 'w', encoding='utf-8-sig', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+    with open(
+        RESERVATION_CSV,
+        'w',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
         writer.writeheader()
-
-        # .writerows(): writerow(단수)와 달리, 리스트 안에 있는 여러 줄의 데이터를 한 번에 파일에 작성
         writer.writerows(reservations)
 
 def modify_reservation(current_user):
-    # 내 예약 정보를 확인하고 날짜와 시간을 수정
     reservations = load_reservations()
     doctors = load_doctors()
 
@@ -742,84 +817,120 @@ def modify_reservation(current_user):
 
     patient_id = current_user['환자번호']
 
-    # 1. 내 예약 중 '예약완료' 상태인 것만 걸러내기
     active_reservations = [
         record
         for record in reservations
         if (
-            record['환자번호'] == patient_id
-            and record['상태'] == '예약완료'
+            record.get('환자번호', '').strip()
+            == patient_id.strip()
+            and record.get('상태', '').strip()
+            == '예약완료'
         )
     ]
 
+    active_reservations.sort(
+        key=lambda x: x.get('예약번호', '')
+    )
+
     if not active_reservations:
-        print('\n수정할 수 있는 예약 내역이 없습니다.')
+        print("변경할 수 있는 예약 내역이 없습니다.")
         return
 
-    # 의료진번호를 이용해 의료진 정보를 빠르게 찾기 위한 딕셔너리
     doctor_dict = {
         doctor_info['의료진번호']: doctor_info
         for doctor_info in doctors
     }
 
-    print(
-        f"\n======================== "
-        f"[{current_user['이름']}]님의 예약 수정 "
-        f"========================"
-    )
-
-    # 화면에 실제로 출력된 예약만 저장
-    display_reservations = []
+    valid_active_reservations = []
+    table_data = []
 
     for record in active_reservations:
-        doctor_info = doctor_dict.get(record['의료진번호'])
+        doctor_info = doctor_dict.get(
+            record.get('의료진번호', '')
+        )
 
         if doctor_info is None:
             continue
 
-        display_reservations.append(record)
-        index = len(display_reservations)
+        valid_active_reservations.append(record)
 
-        print(
-            f"{index}. [예약번호: {record['예약번호']}] "
-            f"{doctor_info['진료과']} {doctor_info['이름']} 원장 / "
-            f"기존 예약: {record['예약날짜']} {record['예약시간']}"
-        )
+        table_data.append([
+            len(valid_active_reservations),
+            record.get('예약번호', '-'),
+            doctor_info.get('진료과', '정보없음'),
+            doctor_info.get('이름', '정보없음'),
+            record.get('예약날짜', '-'),
+            record.get('예약시간', '-')
+        ])
 
-    if not display_reservations:
-        print('의료진 정보를 확인할 수 있는 예약이 없습니다.')
+    if not table_data:
+        print('\n표시할 수 있는 예약 내역이 없습니다.')
         return
 
-    print('\n0. 이전 메뉴로 돌아가기')
-    print('====================================================================')
+    table = tabulate(
+        table_data,
+        headers=[
+            '번호',
+            '예약번호',
+            '진료과',
+            '의료진',
+            '예약날짜',
+            '예약시간'
+        ],
+        tablefmt='grid',
+        disable_numparse=True,
+        colalign=(
+            'center',
+            'center',
+            'center',
+            'center',
+            'center',
+            'center'
+        )
+    )
 
-    # 2. 수정할 예약 선택
+    first_line = table.splitlines()[0]
+    table_width = safe_width(first_line)
+    title = f"📝 [{current_user['이름']}]님의 예약 변경"
+
+    print()
+    print('=' * table_width)
+    print(center_by_width(title, table_width))
+    print('=' * table_width)
+    print(table)
+    print(center_by_width('0. 이전 메뉴', table_width))
+    print('=' * table_width)
+
     while True:
-        try:
-            input_value = input('\n수정할 예약 번호를 선택하세요: ').strip()
+        input_value = input(
+            '\n변경할 예약 번호를 선택하세요: '
+        ).strip()
 
-            if input_value == '0':
-                return
+        if input_value == '0':
+            return
 
-            if not input_value:
-                raise ValueError('공백 입력은 불가합니다.')
+        if not input_value:
+            print('오류: 공백 입력은 불가합니다.')
+            continue
 
-            choice = int(input_value)
+        if not input_value.isdigit():
+            print('오류: 숫자로만 입력해주세요.')
+            continue
 
-            if not 1 <= choice <= len(display_reservations):
-                raise ValueError('범위를 벗어난 번호입니다.')
+        choice = int(input_value)
 
-            target_reservation = display_reservations[choice - 1]
-            break
+        if not 1 <= choice <= len(valid_active_reservations):
+            print('오류: 범위를 벗어난 번호입니다.')
+            continue
 
-        except ValueError as error:
-            if 'invalid literal' in str(error):
-                print('오류: 숫자로만 입력해주세요.')
-            else:
-                print(f'오류: {error}')
+        target_reservation = valid_active_reservations[
+            choice - 1
+        ]
+        break
 
-    # 3. 선택한 예약의 의료진 정보 확인
-    doctor = doctor_dict.get(target_reservation['의료진번호'])
+    doctor = doctor_dict.get(
+        target_reservation.get('의료진번호', '')
+    )
 
     if doctor is None:
         print('해당 예약의 의료진 정보를 찾을 수 없습니다.')
@@ -830,17 +941,21 @@ def modify_reservation(current_user):
         '예약 변경을 시작합니다.'
     )
 
-    # 변경 대상인 자기 예약을 예약 가능 시간 검사에서 제외한다.
-    # 제외하지 않으면 기존에 예약한 날짜와 시간이 이미 찬 시간으로 처리된다.
+    # 변경 대상인 자기 예약을 예약 가능 시간 검사에서 제외합니다.
     other_reservations = [
         reservation
         for reservation in reservations
-        if reservation['예약번호'] != target_reservation['예약번호']
+        if (
+            reservation.get('예약번호')
+            != target_reservation.get('예약번호')
+        )
     ]
 
-    # 4. 새로운 날짜와 시간 선택
     while True:
-        new_date = select_date(doctor, other_reservations)
+        new_date = select_date(
+            doctor,
+            other_reservations
+        )
 
         if new_date is None:
             return
@@ -852,49 +967,126 @@ def modify_reservation(current_user):
         )
 
         if new_time is None:
-            print('\n▶ 시간 선택을 취소했습니다. 다시 날짜를 선택해주세요.')
+            print(
+                '\n시간 선택을 취소했습니다. '
+                '다시 날짜를 선택해주세요.'
+            )
             continue
 
         break
 
-    # 기존과 동일한 날짜·시간을 선택한 경우
     if (
-        new_date == target_reservation['예약날짜']
-        and new_time == target_reservation['예약시간']
+        new_date == target_reservation.get('예약날짜')
+        and new_time == target_reservation.get('예약시간')
     ):
-        print('\n기존 예약과 동일한 날짜와 시간입니다. 변경을 취소합니다.')
-        return False
+        print(
+            '\n기존 예약과 동일한 날짜와 시간입니다. '
+            '변경을 취소합니다.'
+        )
+        return
 
-    # 5. 변경 내용 확인
-    print('\n====================== [예약 수정 상세] ======================')
     print(
-        f"기존 예약: {target_reservation['예약날짜']} "
-        f"{target_reservation['예약시간']}"
+        '\n====================== '
+        '[예약 변경 상세] ======================'
+    )
+    print(
+        f"기존 예약: "
+        f"{target_reservation.get('예약날짜')} "
+        f"{target_reservation.get('예약시간')}"
     )
     print(f'변경 예약: {new_date} {new_time}')
-    print('===========================================================')
+    print(
+        '==========================================================='
+    )
 
     while True:
         confirm = input(
-            '\n위 일정으로 예약을 수정하시겠습니까? (Y/N) > '
+            '\n위 일정으로 예약을 변경하시겠습니까? '
+            '(Y/N) > '
         ).strip().upper()
 
         if confirm == 'Y':
-            # target_reservation은 reservations 안의 같은 딕셔너리 객체이므로
-            # 여기서 값을 바꾸면 전체 reservations 목록에도 반영된다.
+            old_reservation_id = target_reservation.get(
+                '예약번호',
+                ''
+            )
+            old_date = target_reservation.get(
+                '예약날짜',
+                ''
+            )
+
+            # 예약번호는 예약날짜를 앞부분으로 사용하므로,
+            # 예약날짜가 변경되면 새 날짜에 맞춰 다시 생성합니다.
+            if new_date != old_date:
+                date_prefix = new_date.replace('-', '')
+                max_sequence_number = 0
+
+                for reservation in reservations:
+                    # 현재 변경 중인 자기 예약은 순번 계산에서 제외합니다.
+                    if reservation is target_reservation:
+                        continue
+
+                    reservation_id = reservation.get(
+                        '예약번호',
+                        ''
+                    )
+
+                    if not reservation_id.startswith(
+                        f'{date_prefix}-'
+                    ):
+                        continue
+
+                    try:
+                        sequence_number = int(
+                            reservation_id.split('-')[1]
+                        )
+                        max_sequence_number = max(
+                            max_sequence_number,
+                            sequence_number
+                        )
+                    except (IndexError, ValueError):
+                        continue
+
+                new_reservation_id = (
+                    f'{date_prefix}-'
+                    f'{max_sequence_number + 1:03d}'
+                )
+                target_reservation['예약번호'] = (
+                    new_reservation_id
+                )
+            else:
+                new_reservation_id = old_reservation_id
+
             target_reservation['예약날짜'] = new_date
             target_reservation['예약시간'] = new_time
 
             update_reservations_csv(reservations)
 
-            print('\n예약 수정이 정상적으로 완료되었습니다. 이전 메뉴로 돌아갑니다.')
+            print(
+                '\n예약 변경이 정상적으로 완료되었습니다.'
+            )
+
+            if new_reservation_id != old_reservation_id:
+                print(
+                    f'예약번호도 날짜에 맞게 변경되었습니다: '
+                    f'{old_reservation_id} → '
+                    f'{new_reservation_id}'
+                )
+
+            print('이전 메뉴로 돌아갑니다.')
             return True
 
         if confirm == 'N':
-            print('\n예약 수정이 취소되었습니다. 이전 메뉴로 돌아갑니다.')
+            print(
+                '\n예약 변경이 취소되었습니다. '
+                '이전 메뉴로 돌아갑니다.'
+            )
             return False
 
-        print('올바른 입력이 아닙니다. Y 또는 N을 입력해주세요.')
+        print(
+            '올바른 입력이 아닙니다. '
+            'Y 또는 N을 입력해주세요.'
+        )
 
 
 # 내 예약 취소
@@ -902,31 +1094,176 @@ def modify_reservation(current_user):
 def cancel_my_reservation(current_user):
     print('\n======== 예약 취소 ========')
 
-    reservations = []
+    try:
+        with open(
+            RESERVATION_CSV,
+            'r',
+            encoding='utf-8-sig',
+            newline=''
+        ) as file:
+            reader = csv.DictReader(file)
+            fieldnames = reader.fieldnames
+            reservations = list(reader)
 
-    # 1. 파일에서 데이터 읽어오기
-    with open(RESERVATION_CSV, 'r', encoding='utf-8-sig', newline='') as file:
-        reader = csv.DictReader(file)
-        fieldnames = reader.fieldnames
-        for reservation in reader:
-            reservations.append(reservation)
+    except FileNotFoundError:
+        print(f'{RESERVATION_CSV} 파일을 찾을 수 없습니다.')
+        return
 
+    if not fieldnames:
+        print('예약 파일의 헤더를 확인할 수 없습니다.')
+        return
 
-        reservation_number = input('취소할 예약번호 : ')
-        is_found = False
+    doctors = {}
 
-        for reservation in reservations:
-            if reservation['예약번호'] == reservation_number and reservation['환자번호']==current_user['환자번호']:
-                reservation['상태'] ='예약취소'
-                print(current_user['이름'], '님의 예약을 취소합니다.')
-                is_found = True
+    try:
+        with open(
+            DOCTOR_CSV,
+            'r',
+            encoding='utf-8-sig',
+            newline=''
+        ) as file:
+            reader = csv.DictReader(file)
 
-    if is_found:
-        with open(RESERVATION_CSV, 'w', encoding='utf-8-sig', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()  # 맨 첫 줄에 컬럼명(헤더) 작성
-            writer.writerows(reservations)  # '취소'로 바뀐 데이터 전체 작성
-    else:
-        print("일치하는 예약 정보를 찾을 수 없습니다.")
+            for doctor in reader:
+                doctors[doctor['의료진번호']] = doctor
+
+    except FileNotFoundError:
+        print(f'{DOCTOR_CSV} 파일을 찾을 수 없습니다.')
+        return
+
+    my_reservations = [
+        reservation
+        for reservation in reservations
+        if (
+            reservation.get('환자번호', '').strip()
+            == current_user['환자번호'].strip()
+            and reservation.get('상태', '').strip()
+            == '예약완료'
+        )
+    ]
+
+    my_reservations.sort(
+        key=lambda x: x.get('예약번호', '')
+    )
+
+    if len(my_reservations) == 0:
+        print("취소 가능한 예약이 없습니다.")
+        return
+
+    table_data = []
+
+    for index, reservation in enumerate(
+        my_reservations,
+        start=1
+    ):
+        doctor = doctors.get(
+            reservation.get('의료진번호', ''),
+            {}
+        )
+
+        table_data.append([
+            index,
+            reservation.get('예약번호', '-'),
+            doctor.get('진료과', '정보없음'),
+            doctor.get('이름', '정보없음'),
+            reservation.get('예약날짜', '-'),
+            reservation.get('예약시간', '-'),
+            reservation.get('상태', '-')
+        ])
+
+    table = tabulate(
+        table_data,
+        headers=[
+            '번호',
+            '예약번호',
+            '진료과',
+            '진료의',
+            '예약날짜',
+            '예약시간',
+            '상태'
+        ],
+        tablefmt='grid',
+        disable_numparse=True,
+        colalign=(
+            'center',
+            'center',
+            'center',
+            'center',
+            'center',
+            'center',
+            'center'
+        )
+    )
+
+    first_line = table.splitlines()[0]
+    table_width = safe_width(first_line)
+    title = f"❌ [{current_user['이름']}]님의 예약 취소"
 
     print()
+    print('=' * table_width)
+    print(center_by_width(title, table_width))
+    print('=' * table_width)
+    print(table)
+    print(center_by_width('0. 이전 메뉴', table_width))
+    print('=' * table_width)
+
+    while True:
+        choice_value = input(
+            '\n취소할 번호를 입력하세요: '
+        ).strip()
+
+        if choice_value == '0':
+            return
+
+        if not choice_value.isdigit():
+            print('목록에 있는 숫자를 입력하세요.')
+            continue
+
+        choice = int(choice_value)
+
+        if not 1 <= choice <= len(my_reservations):
+            print('번호가 올바르지 않습니다.')
+            continue
+
+        target = my_reservations[choice - 1]
+        break
+
+    while True:
+        confirm = input(
+            f"예약번호 [{target['예약번호']}]을 "
+            '정말 취소하시겠습니까? (Y/N) > '
+        ).strip().upper()
+
+        if confirm == 'N':
+            print('예약 취소가 취소되었습니다.')
+            return
+
+        if confirm == 'Y':
+            break
+
+        print('Y 또는 N을 입력하세요.')
+
+    for reservation in reservations:
+        if (
+            reservation.get('예약번호')
+            == target.get('예약번호')
+            and reservation.get('환자번호')
+            == current_user.get('환자번호')
+        ):
+            reservation['상태'] = '예약취소'
+            break
+
+    with open(
+        RESERVATION_CSV,
+        'w',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
+        writer.writeheader()
+        writer.writerows(reservations)
+
+    print('\n예약이 정상적으로 취소되었습니다.')
