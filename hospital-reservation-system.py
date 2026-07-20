@@ -664,13 +664,23 @@ def load_doctors():
 def load_reservations():
     # 전체 예약 정보를 CSV에서 불러옴
     reservations = []
+    # 1. 현재 파이썬 파일이 있는 폴더의 절대 경로를 알아냅니다.
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # 2. 폴더 경로와 파일 이름을 완벽하게 결합합니다.
+    file_path = os.path.join(base_dir, 'reservations_total_only.csv')
+
     try:
-        with open('reservations_total_only.csv', 'r', encoding='utf-8-sig') as file:
+        # 3. 결합된 file_path를 사용해서 파일을 엽니다.
+        with open(file_path, 'r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 reservations.append(row)
     except FileNotFoundError:
+        # 파일이 진짜로 없을 때를 대비해, 어디서 찾고 있었는지 경로를 출력해줍니다.
+        print(f"\n[오류] 다음 위치에서 파일을 찾을 수 없습니다: {file_path}")
         pass
+
     return reservations
 
 def select_department(doctors):
@@ -1052,13 +1062,13 @@ def modify_reservation(current_user):
     active_reservations = [record for record in reservations if record['환자번호'] == patient_id and record['상태'] == '예약완료']
 
     if not active_reservations:
-        print("\n수정할 수 있는 예약 내역이 없습니다.")
+        print("\n변경할 수 있는 예약 내역이 없습니다.")
         return
 
     # 의사 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n======================== [{current_user['이름']}]님의 예약 수정 ========================")
+    print(f"\n======================== [{current_user['이름']}]님의 예약 변경 ========================")
     for index, record in enumerate(active_reservations, 1):
         doctor_info = doctor_dict.get(record['의료진번호'])
         if doctor_info:
@@ -1070,7 +1080,7 @@ def modify_reservation(current_user):
     # 2. 수정할 예약 선택
     while True:
         try:
-            input_value = input("\n수정할 예약 번호를 선택하세요: ").strip()
+            input_value = input("\n변경할 예약 번호를 선택하세요: ").strip()
             if input_value == '0':
                 return None
             if not input_value:
@@ -1107,13 +1117,13 @@ def modify_reservation(current_user):
         break
 
     # 5. 변경 상세 확인 및 덮어쓰기
-    print(f"\n====================== [예약 수정 상세] ======================")
+    print(f"\n====================== [예약 변경 상세] ======================")
     print(f"기존 예약: {target_reservation['예약날짜']} {target_reservation['예약시간']}")
     print(f"변경 예약: {new_date} {new_time}")
     print(f"===========================================================")
 
     while True:
-        confirm = input("\n위 일정으로 예약을 수정하시겠습니까? (Y/N) > ").strip().upper()
+        confirm = input("\n위 일정으로 예약을 변경하시겠습니까? (Y/N) > ").strip().upper()
 
         if confirm == 'Y':
             # 전체 reservations 리스트 안에 있는 타겟 예약의 데이터만 새롭게 변경
@@ -1123,11 +1133,11 @@ def modify_reservation(current_user):
             # 변경된 전체 리스트를 CSV에 덮어씀
             update_reservations_csv(reservations)
 
-            print("\n예약 수정이 정상적으로 완료되었습니다. 이전 메뉴로 돌아갑니다.")
+            print("\n예약 변경이 정상적으로 완료되었습니다. 이전 메뉴로 돌아갑니다.")
             return True
 
         elif confirm == 'N':
-            print("\n예약 수정이 취소되었습니다. 이전 메뉴로 돌아갑니다.")
+            print("\n예약 변경이 취소되었습니다. 이전 메뉴로 돌아갑니다.")
             return False
 
         else:
