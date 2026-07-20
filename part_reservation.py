@@ -117,14 +117,10 @@ def reserve_by_history(current_user):
     reservations = load_reservations()
     doctors = load_doctors()
 
-    if doctors is None:
-        return
-
     patient_id = current_user['환자번호']
 
     # 2. 해당 환자의 '진료완료' 기록만 필터링
-    history_records = [record for record in reservations
-                       if (record['환자번호'] == patient_id and record['상태'] == '진료완료')]
+    history_records = [record for record in reservations if record['환자번호'] == patient_id and record['상태'] == '진료완료']
 
     # 3. 기록이 없을 경우 처리
     if not history_records:
@@ -134,25 +130,55 @@ def reserve_by_history(current_user):
     # 의료진 번호로 의료진 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n===================== [{current_user['이름']}]님의 진료 이력 =====================")
-
     # 출력 및 선택을 위해 리스트에 저장
     display_list = []
-    for index, record in enumerate(history_records, 1):
+    table_data = []
+    # enumerate 대신 직접 번호를 세는 변수(display_index)를 만듭니다.
+    display_index = 1
+
+    for record in history_records:
         doctor_info_id = record['의료진번호']
         doctor_info = doctor_dict.get(doctor_info_id)
 
-        # 만약 의료진 정보가 있다면 내역에 추가
+        # 만약 의료진 정보가 '정상적으로 존재하는 경우'에만 번호표를 부여하고 출력합니다!
         if doctor_info:
             date = record['예약날짜']
             department_name = doctor_info['진료과']
             doctor_info_name = doctor_info['이름']
 
             display_list.append(doctor_info)
-            print(f"{index}. 진료과: {department_name} / 의료진: {doctor_info_name} / 진료 날짜: {date}")
+            table_data.append([
+                display_index,
+                department_name,
+                doctor_info_name,
+                date
+            ])
+            display_index += 1
+            # 출력이 성공했을 때만 다음 번호표로 숫자를 1 올립니다.
 
-    print("\n0. 이전 메뉴")
-    print("==============================================================")
+        # tabulate를 활용한 표 출력 로직
+    if table_data:
+        table = tabulate(
+            table_data,
+            headers=['번호', '진료과', '의료진', '진료 날짜'],
+            tablefmt='grid',
+            disable_numparse=True,
+            colalign=('center', 'center', 'center', 'center')
+        )
+        first_line = table.splitlines()[0]
+        table_width = safe_width(first_line)
+        title = f"🗓️ [{current_user['이름']}]님의 진료 이력"
+
+        print()
+        print('=' * table_width)
+        print(center_by_width(title, table_width))
+        print('=' * table_width)
+        print(table)
+        print(center_by_width("0. 이전 메뉴", table_width))
+        print('=' * table_width)
+    else:
+        print("\n표시할 진료 이력이 없습니다.")
+        return
 
     # 4. 예약할 항목 선택
     while True:
@@ -229,13 +255,24 @@ def load_doctors():
 def load_reservations():
     # 전체 예약 정보를 CSV에서 불러옴
     reservations = []
+
+    # RESERVATION_CSV가 상대 경로라면 현재 파이썬 파일이 있는 폴더를 기준으로 찾습니다.
+    if os.path.isabs(RESERVATION_CSV):
+        file_path = RESERVATION_CSV
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(base_dir, RESERVATION_CSV)
+
     try:
-        with open(RESERVATION_CSV, 'r', encoding='utf-8-sig') as file:
+        with open(file_path, 'r', encoding='utf-8-sig', newline='') as file:
             reader = csv.DictReader(file)
+
             for row in reader:
                 reservations.append(row)
+
     except FileNotFoundError:
-        pass
+        print(f"\n[오류] 다음 위치에서 예약 파일을 찾을 수 없습니다: {file_path}")
+
     return reservations
 
 def select_department(doctors):
@@ -278,12 +315,43 @@ def select_doctor(doctors, department):
         print("현재 해당 진료과에 예약 가능한 의료진이 없습니다.")
         return None
 
-    print(f"\n======================= {department} 의료진 선택 ========================")
+    # 표 데이터를 담을 리스트
+    table_data = []
+
     for index, doctor_info in enumerate(available_doctors, 1):
-        print(
-            f"{index}. {doctor_info['이름']} (진료요일: {doctor_info['진료요일']} / 진료시간: {doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']})")
-    print("\n0. 이전 메뉴")
-    print(f"==============================================================")
+        # 긴 요일 문자열을 깔끔하게 축약 (예: 월,화,수,목,금 -> 월~금)
+        working_days = doctor_info['진료요일'].replace('월,화,수,목,금', '월~금')
+        working_time = f"{doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']}"
+
+        table_data.append([
+            index,
+            doctor_info['이름'],
+            working_days,
+            working_time
+        ])
+
+    # 표 출력 로직
+    if table_data:
+        table = tabulate(
+            table_data,
+            headers=['번호', '의료진', '진료 요일', '진료 시간'],
+            tablefmt='grid',
+            disable_numparse=True,
+            colalign=('center', 'center', 'center', 'center')
+        )
+
+        # 표의 테두리 길이를 계산하여 상하단 디자인을 맞춥니다.
+        first_line = table.splitlines()[0]
+        table_width = safe_width(first_line)
+        title = f"🩺 {department} 의료진 선택"
+
+        print()
+        print('=' * table_width)
+        print(center_by_width(title, table_width))
+        print('=' * table_width)
+        print(table)
+        print(center_by_width("0. 이전 메뉴", table_width))
+        print('=' * table_width)
 
     while True:
         try:
@@ -292,10 +360,13 @@ def select_doctor(doctors, department):
                 return None
             if not value:
                 raise ValueError("공백 입력은 불가합니다.")
+
             choice = int(value)
             if not (1 <= choice <= len(available_doctors)):
                 raise ValueError("범위를 벗어난 번호입니다.")
+
             return available_doctors[choice - 1]
+
         except ValueError as error:
             if "invalid literal" in str(error):
                 print("오류: 문자 입력은 불가합니다. 숫자로만 입력해주세요.")
