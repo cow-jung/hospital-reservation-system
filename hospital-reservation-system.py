@@ -1,4 +1,4 @@
-#테스트 메시지
+#테스트
 '''
 완료: ✅
 진행중: 🔥
@@ -289,7 +289,7 @@ def signup():
     print(f'생년월일 : {birth_date}')
     print(f'성별     : {gender}')
     print(f'연락처   : {phone_number}')
-    print('==================================\n')
+    print('=====================================\n')
 
     while True:
         save_choice = input('회원가입 정보를 저장하시겠습니까? (Y/N) : ')
@@ -494,7 +494,7 @@ def reservation_menu():
     print('1. 진료과로 예약')
     print('2. 과거 진료 이력으로 예약')
     print('\n0. 이전 메뉴')
-    print('=============================\n')
+    print('===============================\n')
 
 # 진료과로 예약
 def reserve_by_department(current_user):
@@ -531,7 +531,7 @@ def reserve_by_department(current_user):
     print(f"예약날짜: {date_str}")
     print(f"예약시간: {time_str}")
     print(f"진료과 및 의료진 이름: {doctor['진료과']} {doctor['이름']}")
-    print(f"===========================================================")
+    print(f"=============================================================")
 
     while True:
         confirm = input("\n예약을 확정하시겠습니까? (Y/N) > ").strip().upper()
@@ -595,7 +595,7 @@ def reserve_by_history(current_user):
             display_index += 1
 
     print("\n0. 이전 메뉴")
-    print("===============================================================")
+    print("==================================================================")
 
     # 4. 예약할 항목 선택
     while True:
@@ -702,7 +702,7 @@ def select_department(doctors):
     for index, department_name in enumerate(departments, 1):
         print(f"{index}. {department_name}")
     print("\n0. 이전 메뉴")
-    print("===========================")
+    print("==============================")
 
     while True:
         try:
@@ -736,7 +736,7 @@ def select_doctor(doctors, department):
         print(
             f"{index}. {doctor_info['이름']} (진료요일: {doctor_info['진료요일']} / 진료시간: {doctor_info['진료시작시간']} ~ {doctor_info['진료종료시간']})")
     print("\n0. 이전 메뉴")
-    print(f"==============================================================")
+    print(f"=================================================================")
 
     while True:
         try:
