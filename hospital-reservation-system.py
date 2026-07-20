@@ -348,14 +348,14 @@ def user_view(current_user):
             print('올바른 메뉴 번호를 입력하세요.\n')
 
 def user_menu(current_user): # 사용자 로그인 시 메뉴
-    print('\n======= 병원 예약 관리 =======')
+    print('\n======== 병원 예약 관리 ========')
     print(f"현재 사용자 : {current_user['이름']} / {current_user['환자번호']}")
     print('1. 진료과 조회')
     print('2. 예약하기')
     print('3. 내 예약 관리')
     print('4. 진료 이력 조회')
     print('5. 로그아웃')
-    print('==============================\n')
+    print('=============================\n')
 
 
 '''============= 진료과/의료진 조회 ============='''
@@ -829,7 +829,7 @@ def print_calendar(year, month, doctor, reservations):
     # 해당 월의 달력을 출력하고 예약 마감 날짜를 표시
     # calendar.monthcalendar(): 해당 월의 달력을 1주 단위로 묶어서 리스트 형태로 반환
     month_calendar = calendar.monthcalendar(year, month)
-    print(f"\n==================== {year}년 {month}월 예약 달력 ===================")
+    print(f"\n==================== {year}년 {month}월 예약 달력 ====================")
     print("                    월    화    수   목   금")
 
     fully_booked_dates = []
@@ -856,7 +856,7 @@ def print_calendar(year, month, doctor, reservations):
             print(f'                   {week_string}')
 
     print(f"\n                 * {RED}빨간색 숫자{RESET}: 예약 불가능한 날짜")
-    print(f"=============================================================")
+    print(f"==============================================================")
 
 def select_date(doctor, reservations):
     # 예약할 날짜를 달력에서 선택
@@ -1034,7 +1034,7 @@ def my_reservation_menu():
     print('2. 예약 변경')
     print('3. 예약 취소')
     print('0. 이전 메뉴')
-    print('==============================\n')
+    print('============================\n')
 
 # 내 예약 조회
 def show_my_reservations(current_user):
@@ -1720,21 +1720,38 @@ def search_reservation_by_patient():
 
 # 예약 수정
 def update_reservation():
-    # 수정할 예약번호 입력받기
     res_id = input("\n수정할 예약번호를 입력하세요 (예: 20260701-001) : ").strip()
 
-    reservations = read_csv_safely("reservations_with_fee_breakdown.csv")
-    if not reservations:
+    # [수정] read_csv_safely는 단일 리스트를 반환하므로 한 개 변수로 받아온 뒤 분리합니다.
+    all_reservation_rows = read_csv_safely("reservations_with_fee_breakdown.csv")
+    if not all_reservation_rows:
         print("\n[오류] 예약 데이터를 찾을 수 없습니다.")
         return
 
-    headers = reservations[0]
-    rows = reservations[1:]
+    # 첫 번째 줄은 헤더, 두 번째 줄부터는 데이터 행으로 분리
+    headers = all_reservation_rows[0]
+    reservations_list = all_reservation_rows[1:]
 
-    # 대상을 수정하기 위해 몇 번째 리스트에 들어있는지 색인(Index) 조사
+    # 기존 달력 함수(get_available_times)가 딕셔너리 구조를 기대하므로 2차원 리스트를 딕셔너리 리스트로 변환
+    reservations = []
+    for r in reservations_list:
+        if len(r) >= 9:
+            reservations.append({
+                '예약번호': r[0],
+                '환자번호': r[1],
+                '의료진번호': r[2],
+                '예약날짜': r[3],
+                '예약시간': r[4],
+                '급여': r[5],
+                '비급여': r[6],
+                '총금액': r[7],
+                '상태': r[8]
+            })
+
+    # 수정 대상 데이터 행 찾기
     target_index = -1
-    for i, row in enumerate(rows):
-        if row[0] == res_id:
+    for i, r in enumerate(reservations):
+        if r.get('예약번호') == res_id:
             target_index = i
             break
 
@@ -1742,46 +1759,84 @@ def update_reservation():
         print(f"\n[오류] 예약번호 '{res_id}'에 해당하는 정보가 없습니다.")
         return
 
-    original_row = rows[target_index]
-    updated_row = list(original_row)  # 안전하게 원본 데이터를 가공하기 위해 복제본 리스트 생성
+    original_row = reservations[target_index]
+    updated_row = dict(original_row)
 
-    # 이름 매핑 데이터 로드
+    # user.csv 및 doctors.csv 정보 불러오기
     patient_map, doctor_map = get_info_maps()
-    p_name = patient_map.get(original_row[1], "미등록")
-    d_info = doctor_map.get(original_row[2], ("미등록", "미등록"))
 
-    # 사용자 편의를 위한 현재 보존 정보 출력
+    # doctors.csv 파일 로드 (리스트 구조 안전 변환)
+    doctor_rows = read_csv_safely("doctors.csv")
+    doc_no = original_row.get('의료진번호')
+
+    doctor_obj = None
+    if doctor_rows:
+        doc_headers = doctor_rows[0]
+        for d in doctor_rows[1:]:
+            if len(d) >= 8 and d[0] == doc_no:
+                # 스크린샷 구조 반영: 0:의료진번호, 1:이름, 2:진료과, 5:진료요일, 6:진료시작시간, 7:진료종료시간
+                doctor_obj = {
+                    '의료진번호': d[0],
+                    '이름': d[1],
+                    '진료과': d[2],
+                    '진료요일': d[5],
+                    '진료시작시간': d[6],
+                    '진료종료시간': d[7]
+                }
+                break
+
+    if not doctor_obj:
+        print("\n[오류] 담당 의료진의 상세 정보(doctors.csv)를 찾을 수 없습니다.")
+        return
+
+    p_name = patient_map.get(original_row.get('환자번호'), "미등록")
+    d_info = doctor_map.get(doc_no, ("미등록", "미등록"))
+
+    # 현재 예약 정보 미리보기 표 출력
     view_headers = ["예약번호", "환자번호", "환자이름", "의료진번호", "의료진이름", "예약날짜", "예약시간", "상태"]
     view_row = [
-        original_row[0], original_row[1], p_name,
-        original_row[2], d_info[0], original_row[3],
-        original_row[4], original_row[8]
+        original_row.get('예약번호'), original_row.get('환자번호'), p_name,
+        doc_no, d_info[0], original_row.get('예약날짜'),
+        original_row.get('예약시간'), original_row.get('상태')
     ]
 
     print("\n[현재 예약 정보]")
     print(tabulate([view_row], headers=view_headers, tablefmt="grid", colalign=["center"] * len(view_headers)))
 
-    print("\n※ 변경을 원하지 않는 항목은 값을 입력하지 않고 [엔터]를 치면 기존 값이 유지됩니다.")
+    print("\n============================================================")
+    print("                 [예약날짜 및 시간 수정 시작]                ")
+    print("============================================================")
+    print("※ 날짜를 바꾸지 않고 시간만 수정하시려면 달력 선택 시 [취소]를 입력하세요.")
 
-    # 새로운 날짜와 시간 입력받기
-    new_date = input(f"새로운 [예약날짜] 입력 (형식 YYYY-MM-DD, 기존: {original_row[3]}) -> ").strip()
-    new_time = input(f"새로운 [예약시간] 입력 (형식 00:00, 기존: {original_row[4]}) -> ").strip()
+    # 1. select_date 함수 호출
+    selected_date = select_date(doctor_obj, reservations)
 
-    is_changed = False  # 실제 변동 사항 식별용 스위치 변수
-    change_logs = []  # 가독성을 위한 변경 내역 누적 리스트
+    if selected_date is None:
+        new_date = original_row.get('예약날짜')
+        print(f"\n[알림] 날짜는 기존 값({new_date})을 유지합니다.")
+    else:
+        new_date = selected_date
 
-    # 날짜 변경 동시 처리 분석 파트
-    if new_date and new_date != original_row[3]:
+    # 2. select_time 함수 호출
+    selected_time = select_time(doctor_obj, new_date, reservations)
+
+    if selected_time is None:
+        new_time = original_row.get('예약시간')
+        print(f"\n[알림] 시간은 기존 값({new_time})을 유지합니다.")
+    else:
+        new_time = selected_time
+
+    is_changed = False
+    change_logs = []
+
+    # 3. 날짜 변경 처리 및 순번 연동 예약번호 자동 생성
+    if new_date != original_row.get('예약날짜'):
         date_prefix = new_date.replace("-", "")
-        if len(date_prefix) != 8 or not date_prefix.isdigit():
-            print("[오류] 날짜 형식이 올바르지 않아 수정을 중단합니다. (예: 2026-07-01)")
-            return
-
-        # 신규 등록을 시도하려는 날짜에 소속된 최고 순번을 추적 및 연동 계산
         max_seq = 0
-        for r in rows:
-            if "-" in r[0]:
-                part_date, part_seq = r[0].split("-")
+        for r in reservations:
+            exist_id = r.get('예약번호', '')
+            if "-" in exist_id:
+                part_date, part_seq = exist_id.split("-")
                 if part_date == date_prefix:
                     try:
                         seq_val = int(part_seq)
@@ -1790,57 +1845,60 @@ def update_reservation():
                     except ValueError:
                         continue
 
-        # 새 순번 배정 및 ID 조합 대입
         new_seq = max_seq + 1
         new_res_id = f"{date_prefix}-{new_seq:03d}"
 
-        updated_row[0] = new_res_id  # 예약번호 방(0번) 업데이트
-        updated_row[3] = new_date  # 예약날짜 방(3번) 업데이트
+        updated_row['예약번호'] = new_res_id
+        updated_row['예약날짜'] = new_date
 
-        change_logs.append(f"  - 예약날짜 변경: {original_row[3]} ➔ {new_date}")
-        change_logs.append(f"  - 예약번호 연동: {original_row[0]} ➔ {new_res_id}")
+        change_logs.append(f"  - 예약날짜 변경: {original_row.get('예약날짜')} ➔ {new_date}")
+        change_logs.append(f"  - 예약번호 연동: {original_row.get('예약번호')} ➔ {new_res_id}")
         is_changed = True
-    else:
-        new_date = original_row[3]  # 공백 엔터 입력 시 기존 상태 유지
 
-    # 시간 변경 처리 파트
-    if new_time and new_time != original_row[4]:
-        updated_row[4] = new_time  # 예약시간 방(4번) 업데이트
-        change_logs.append(f"  - 예약시간 변경: {original_row[4]} ➔ {new_time}")
+    # 4. 시간 변경 처리
+    if new_time != original_row.get('예약시간'):
+        updated_row['예약시간'] = new_time
+        change_logs.append(f"  - 예약시간 변경: {original_row.get('예약시간')} ➔ {new_time}")
         is_changed = True
-    else:
-        new_time = original_row[4]  # 공백 엔터 입력 시 기존 상태 유지
 
-    # 유저가 두 항목 모두 변경값 없이 그냥 엔터를 친 상황 필터링
     if not is_changed:
         print("\n[알림] 변경된 내용이 없어 수정을 취소합니다.")
         return
 
-    # 대조 완료 확정본 테이블 데이터 세팅
-    new_p_name = patient_map.get(updated_row[1], "미등록")
-    new_d_info = doctor_map.get(updated_row[2], ("미등록", "미등록"))
+    # 대조 미리보기 데이터 조립
+    new_p_name = patient_map.get(updated_row.get('환자번호'), "미등록")
+    new_d_info = doctor_map.get(updated_row.get('의료진번호'), ("미등록", "미등록"))
 
     updated_view_row = [
-        updated_row[0], updated_row[1], new_p_name,
-        updated_row[2], new_d_info[0], updated_row[3],
-        updated_row[4], updated_row[8]
+        updated_row.get('예약번호'), updated_row.get('환자번호'), new_p_name,
+        updated_row.get('의료진번호'), new_d_info[0], updated_row.get('예약날짜'),
+        updated_row.get('예약시간'), updated_row.get('상태')
     ]
 
     print("\n" + "=" * 60)
     print(" 변경 예정 예약 정보 ".center(60))
     print("=" * 60)
-    print("\n".join(change_logs))  # 무엇이 수정되었는지 직관적으로 출력해줌
+    print("\n".join(change_logs))
     print("=" * 60)
 
     confirm = input("이대로 예약 정보를 수정하시겠습니까? (Y/N) : ").strip().upper()
     if confirm == "Y":
-        rows[target_index] = updated_row  # 준비해둔 신규 행 데이터 패치
+        reservations[target_index] = updated_row
+
+        # 파일 저장 시에는 기존 원본 형식인 2차원 리스트 구조로 변환하여 안전하게 작성합니다.
+        save_rows = [headers]
+        for r in reservations:
+            save_rows.append([
+                r['예약번호'], r['환자번호'], r['의료진번호'],
+                r['예약날짜'], r['예약시간'], r['급여'],
+                r['비급여'], r['총금액'], r['상태']
+            ])
+
         try:
             with open("reservations_with_fee_breakdown.csv", "w", encoding="utf-8-sig", newline="") as file:
                 writer = csv.writer(file)
-                writer.writerow(headers)  # 급여, 비급여가 유지되는 원본 헤더 그대로 덮어쓰기
-                writer.writerows(rows)
-            print("\n[성공] 예약 날짜와 시간이 한 번에 안전하게 수정 완료되었습니다.")
+                writer.writerows(save_rows)
+            print("\n[성공] 검증을 거쳐 예약 정보가 변경되었습니다.")
             print("\n[최종 수정 완료 정보]")
             print(tabulate([updated_view_row], headers=view_headers, tablefmt="grid",
                            colalign=["center"] * len(view_headers)))
@@ -1929,6 +1987,9 @@ def department_doctor_manage(current_user):
             update_doctor()
 
         elif choice == '4':
+            add_doctor()
+
+        elif choice == '5':
             delete_doctor()
 
         elif choice == '0':
@@ -1943,7 +2004,8 @@ def department_doctor_manage_menu():
     print('1. 전체 진료과/의료진 조회')
     print('2. 진료과별 의료진 조회')
     print('3. 의료진 정보 수정')
-    print('4. 의료진 삭제')
+    print('4. 의료진 추가')
+    print('5. 의료진 삭제')
     print('0. 이전 메뉴')
     print('===================================\n')
 
@@ -2156,6 +2218,158 @@ def update_doctor():
             print(f"\n[오류] 파일 저장 중 문제가 발생했습니다: {e}")
     else:
         print("\n[취소] 수정이 취소되었습니다. 파일은 변경되지 않았습니다.")
+
+# 의료진 추가
+def add_doctor():
+    print("\n" + "=" * 60)
+    print(" 신규 의료진 등록 ".center(60))
+    print("=" * 60)
+
+    # 1. doctors.csv 데이터 로드
+    doctor_rows = read_csv_safely("doctors.csv")
+    if not doctor_rows:
+        print("\n[오류] doctors.csv 파일을 찾을 수 없거나 데이터가 없습니다.")
+        return
+
+    headers = doctor_rows[0]  # 원본 파일 헤더
+    rows = doctor_rows[1:]  # 데이터 행들
+
+    # 2. 과별 진료실 목록 및 전화번호 분석
+    # dept_data_map = { '내과': {'rooms': [201, 202], 'tel': '031-710-1001'} }
+    dept_data_map = {}
+    all_rooms = set()  # 전체 진료실 중복 체크용
+    all_tels = set()  # 전체 전화번호 중복 체크용
+
+    for r in rows:
+        if len(r) >= 5:
+            dept = r[2].strip()  # 진료과
+            room = r[3].strip()  # 진료실번호
+            tel = r[4].strip()  # 진료과전화번호
+
+            if dept:
+                if dept not in dept_data_map:
+                    dept_data_map[dept] = {'rooms': [], 'tel': tel}
+
+                # 숫자로 변환 가능한 진료실 번호 수집
+                if room.isdigit():
+                    dept_data_map[dept]['rooms'].append(int(room))
+
+                all_rooms.add(room)
+                all_tels.add(tel)
+
+    # 3. 신규 의료진번호(D00000 형태) 자동 생성
+    max_num = 0
+    for r in rows:
+        if r and r[0].startswith("D"):
+            try:
+                num_part = int(r[0][1:])
+                if num_part > max_num:
+                    max_num = num_part
+            except ValueError:
+                continue
+
+    new_doc_no = f"D{max_num + 1:05d}"
+    print(f"\n[자동 생성된 의료진번호] : {new_doc_no}")
+
+    # 4. 의료진 이름 입력
+    doc_name = input("1. 의료진 이름 입력 (예: 홍길동) : ").strip()
+    if not doc_name:
+        print("\n[취소] 이름이 입력되지 않아 등록을 취소합니다.")
+        return
+
+    # 5. 진료과 입력
+    dept_name = input("2. 진료과 입력 (예: 내과, 외과, 정형외과) : ").strip()
+    if not dept_name:
+        print("\n[취소] 진료과가 입력되지 않아 등록을 취소합니다.")
+        return
+
+    # 과별 전화번호 통일 + 진료실 번호 자동 +1 증가 채번
+    if dept_name in dept_data_map:
+        # 1) 전화번호는 기존 과의 번호로 통일
+        dept_tel = dept_data_map[dept_name]['tel']
+
+        # 2) 진료실 번호는 해당 과의 최고 번호 + 1 로 부여 (예: 202 -> 203)
+        existing_rooms = dept_data_map[dept_name]['rooms']
+        if existing_rooms:
+            next_room_num = max(existing_rooms) + 1
+            room_no = str(next_room_num)
+        else:
+            room_no = input(f"3. [{dept_name}]의 신규 진료실 번호 입력 (예: 201) : ").strip()
+
+        print(f"\n[알림] '{dept_name}' 기존 규칙에 따라 정보가 자동 세팅되었습니다.")
+        print(f"  - 진료실 번호: {room_no}호")
+        print(f"  - 진료과 전화번호: {dept_tel} (과 전용 대표 번호)")
+
+    else:
+        # 완전히 새로운 진료과인 경우 직접 입력 및 중복 검증
+        print(f"\n[신규 진료과 등록] '{dept_name}'의 정보를 설정합니다.")
+
+        while True:
+            room_no = input("3. 진료실 번호 입력 (예: 201) : ").strip()
+            if not room_no:
+                print("[오류] 진료실 번호는 필수 입력 항목입니다.")
+                continue
+            if room_no in all_rooms:
+                print(f"[경고] 진료실 '{room_no}'호는 이미 다른 곳에서 사용 중입니다. 다른 번호를 입력하세요.")
+                continue
+            break
+
+        while True:
+            dept_tel = input("4. 진료과 전화번호 입력 (예: 031-710-1001) : ").strip()
+            if not dept_tel:
+                print("[오류] 전화번호는 필수 입력 항목입니다.")
+                continue
+            if dept_tel in all_tels:
+                print(f"[경고] 전화번호 '{dept_tel}'는 이미 사용 중입니다. 다른 번호를 입력하세요.")
+                continue
+            break
+
+    # 6. 진료요일 및 시작/종료 시간 입력
+    work_days = input("\n5. 진료 요일 입력 (쉼표 구분, 기본: 월,화,수,목,금) : ").strip()
+    if not work_days:
+        work_days = "월,화,수,목,금"
+
+    start_time = input("6. 진료 시작 시간 입력 (HH:MM, 기본: 09:00) : ").strip()
+    if not start_time:
+        start_time = "09:00"
+
+    end_time = input("7. 진료 종료 시간 입력 (HH:MM, 기본: 18:00) : ").strip()
+    if not end_time:
+        end_time = "18:00"
+
+    status = "진료중"
+
+    # 7. 새 의료진 데이터 행 조립
+    new_row = [
+        new_doc_no, doc_name, dept_name, room_no,
+        dept_tel, work_days, start_time, end_time, status
+    ]
+
+    # 8. 입력 데이터 미리보기 출력
+    view_headers = ["의료진번호", "이름", "진료과", "진료실", "전화번호", "진료요일", "진료시간", "근무상태"]
+    view_data = [[
+        new_doc_no, doc_name, dept_name, f"{room_no}호",
+        dept_tel, work_days, f"{start_time}~{end_time}", status
+    ]]
+
+    print("\n[등록 예정 의료진 정보]")
+    print(tabulate(view_data, headers=view_headers, tablefmt="grid", colalign=["center"] * len(view_headers)))
+
+    # 9. 파일 저장
+    confirm = input("\n위 정보로 새로운 의료진을 등록하시겠습니까? (Y/N) : ").strip().upper()
+    if confirm == "Y":
+        rows.append(new_row)
+        try:
+            with open("doctors.csv", "w", encoding="utf-8-sig", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(headers)
+                writer.writerows(rows)
+            print(f"\n[성공] 의료진 [{doc_name}] 선생님이 성공적으로 등록되었습니다.")
+            print(f"      (의료진번호: {new_doc_no} / 진료실: {room_no}호 / 전화번호: {dept_tel})")
+        except Exception as e:
+            print(f"\n[오류] 파일 저장 중 에러 발생: {e}")
+    else:
+        print("\n[취소] 의료진 등록이 취소되었습니다.")
 
 
 # 의료진 삭제

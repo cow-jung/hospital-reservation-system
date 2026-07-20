@@ -2181,6 +2181,9 @@ def department_doctor_manage(current_user):
             update_doctor()
 
         elif choice == '4':
+            add_doctor()
+
+        elif choice == '5':
             delete_doctor()
 
         elif choice == '0':
@@ -2195,7 +2198,8 @@ def department_doctor_manage_menu():
     print('1. 전체 진료과/의료진 조회')
     print('2. 진료과별 의료진 조회')
     print('3. 의료진 정보 수정')
-    print('4. 의료진 삭제')
+    print('4. 의료진 추가')
+    print('5. 의료진 삭제')
     print('0. 이전 메뉴')
     print('==================================\n')
 
@@ -2408,6 +2412,159 @@ def update_doctor():
             print(f"\n[오류] 파일 저장 중 문제가 발생했습니다: {e}")
     else:
         print("\n[취소] 수정이 취소되었습니다. 파일은 변경되지 않았습니다.")
+
+
+def add_doctor():
+    print("\n" + "=" * 60)
+    print(" 신규 의료진 등록 ".center(60))
+    print("=" * 60)
+
+    # 1. doctors.csv 데이터 로드
+    doctor_rows = read_csv_safely("doctors.csv")
+    if not doctor_rows:
+        print("\n[오류] doctors.csv 파일을 찾을 수 없거나 데이터가 없습니다.")
+        return
+
+    headers = doctor_rows[0]  # 원본 파일 헤더
+    rows = doctor_rows[1:]  # 데이터 행들
+
+    # 2. 과별 진료실 목록 및 전화번호 분석
+    # dept_data_map = { '내과': {'rooms': [201, 202], 'tel': '031-710-1001'} }
+    dept_data_map = {}
+    all_rooms = set()  # 전체 진료실 중복 체크용
+    all_tels = set()  # 전체 전화번호 중복 체크용
+
+    for r in rows:
+        if len(r) >= 5:
+            dept = r[2].strip()  # 진료과
+            room = r[3].strip()  # 진료실번호
+            tel = r[4].strip()  # 진료과전화번호
+
+            if dept:
+                if dept not in dept_data_map:
+                    dept_data_map[dept] = {'rooms': [], 'tel': tel}
+
+                # 숫자로 변환 가능한 진료실 번호 수집
+                if room.isdigit():
+                    dept_data_map[dept]['rooms'].append(int(room))
+
+                all_rooms.add(room)
+                all_tels.add(tel)
+
+    # 3. 신규 의료진번호(D00000 형태) 자동 생성
+    max_num = 0
+    for r in rows:
+        if r and r[0].startswith("D"):
+            try:
+                num_part = int(r[0][1:])
+                if num_part > max_num:
+                    max_num = num_part
+            except ValueError:
+                continue
+
+    new_doc_no = f"D{max_num + 1:05d}"
+    print(f"\n[자동 생성된 의료진번호] : {new_doc_no}")
+
+    # 4. 의료진 이름 입력
+    doc_name = input("1. 의료진 이름 입력 (예: 홍길동) : ").strip()
+    if not doc_name:
+        print("\n[취소] 이름이 입력되지 않아 등록을 취소합니다.")
+        return
+
+    # 5. 진료과 입력
+    dept_name = input("2. 진료과 입력 (예: 내과, 외과, 정형외과) : ").strip()
+    if not dept_name:
+        print("\n[취소] 진료과가 입력되지 않아 등록을 취소합니다.")
+        return
+
+    # 과별 전화번호 통일 + 진료실 번호 자동 +1 증가 채번
+    if dept_name in dept_data_map:
+        # 1) 전화번호는 기존 과의 번호로 통일
+        dept_tel = dept_data_map[dept_name]['tel']
+
+        # 2) 진료실 번호는 해당 과의 최고 번호 + 1 로 부여 (예: 202 -> 203)
+        existing_rooms = dept_data_map[dept_name]['rooms']
+        if existing_rooms:
+            next_room_num = max(existing_rooms) + 1
+            room_no = str(next_room_num)
+        else:
+            room_no = input(f"3. [{dept_name}]의 신규 진료실 번호 입력 (예: 201) : ").strip()
+
+        print(f"\n[알림] '{dept_name}' 기존 규칙에 따라 정보가 자동 세팅되었습니다.")
+        print(f"  - 진료실 번호: {room_no}호")
+        print(f"  - 진료과 전화번호: {dept_tel} (과 전용 대표 번호)")
+
+    else:
+        # 완전히 새로운 진료과인 경우 직접 입력 및 중복 검증
+        print(f"\n[신규 진료과 등록] '{dept_name}'의 정보를 설정합니다.")
+
+        while True:
+            room_no = input("3. 진료실 번호 입력 (예: 201) : ").strip()
+            if not room_no:
+                print("[오류] 진료실 번호는 필수 입력 항목입니다.")
+                continue
+            if room_no in all_rooms:
+                print(f"[경고] 진료실 '{room_no}'호는 이미 다른 곳에서 사용 중입니다. 다른 번호를 입력하세요.")
+                continue
+            break
+
+        while True:
+            dept_tel = input("4. 진료과 전화번호 입력 (예: 031-710-1001) : ").strip()
+            if not dept_tel:
+                print("[오류] 전화번호는 필수 입력 항목입니다.")
+                continue
+            if dept_tel in all_tels:
+                print(f"[경고] 전화번호 '{dept_tel}'는 이미 사용 중입니다. 다른 번호를 입력하세요.")
+                continue
+            break
+
+    # 6. 진료요일 및 시작/종료 시간 입력
+    work_days = input("\n5. 진료 요일 입력 (쉼표 구분, 기본: 월,화,수,목,금) : ").strip()
+    if not work_days:
+        work_days = "월,화,수,목,금"
+
+    start_time = input("6. 진료 시작 시간 입력 (HH:MM, 기본: 09:00) : ").strip()
+    if not start_time:
+        start_time = "09:00"
+
+    end_time = input("7. 진료 종료 시간 입력 (HH:MM, 기본: 18:00) : ").strip()
+    if not end_time:
+        end_time = "18:00"
+
+    status = "진료중"
+
+    # 7. 새 의료진 데이터 행 조립
+    new_row = [
+        new_doc_no, doc_name, dept_name, room_no,
+        dept_tel, work_days, start_time, end_time, status
+    ]
+
+    # 8. 입력 데이터 미리보기 출력
+    view_headers = ["의료진번호", "이름", "진료과", "진료실", "전화번호", "진료요일", "진료시간", "근무상태"]
+    view_data = [[
+        new_doc_no, doc_name, dept_name, f"{room_no}호",
+        dept_tel, work_days, f"{start_time}~{end_time}", status
+    ]]
+
+    print("\n[등록 예정 의료진 정보]")
+    print(tabulate(view_data, headers=view_headers, tablefmt="grid", colalign=["center"] * len(view_headers)))
+
+    # 9. 파일 저장
+    confirm = input("\n위 정보로 새로운 의료진을 등록하시겠습니까? (Y/N) : ").strip().upper()
+    if confirm == "Y":
+        rows.append(new_row)
+        try:
+            with open("doctors.csv", "w", encoding="utf-8-sig", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(headers)
+                writer.writerows(rows)
+            print(f"\n[성공] 의료진 [{doc_name}] 선생님이 성공적으로 등록되었습니다.")
+            print(f"      (의료진번호: {new_doc_no} / 진료실: {room_no}호 / 전화번호: {dept_tel})")
+        except Exception as e:
+            print(f"\n[오류] 파일 저장 중 에러 발생: {e}")
+    else:
+        print("\n[취소] 의료진 등록이 취소되었습니다.")
+
 
 
 # 의료진 삭제
