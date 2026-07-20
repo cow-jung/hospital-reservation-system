@@ -998,23 +998,36 @@ def my_reservation_menu():
 
 # 내 예약 조회
 def show_my_reservations(current_user):
-    print('\n======== 예약 조회 ========')
+    print('======== 예약 조회 ========')
 
-    with (open('reservations_total_only.csv', 'r', encoding='utf-8-sig') as file):
+    doctors = {}
+
+    with open('doctors.csv', 'r', encoding='utf-8-sig') as file:
         reader = csv.DictReader(file)
-        next(reader)
+        for doctor in reader:
+            doctors[doctor['의료진번호']] = doctor
 
+    users = {}
 
+    with open('user.csv', 'r', encoding='utf-8-sig') as file:
+        reader = csv.DictReader(file)
+        for user in reader:
+            users[user['환자번호']] = user
+
+    with open('reservations_total_only.csv', 'r', encoding='utf-8-sig') as file:
+        reader = csv.DictReader(file)
         print(current_user['이름'], '님의 예약을 조회합니다.')
 
         for reservation in reader:
             if reservation['환자번호'] == current_user['환자번호'] and reservation['상태'] == '예약완료':
-                print('예약번호 :', reservation['예약번호'])
-                print('환자번호 :', reservation['환자번호'])
-                print('의료진번호 :', reservation['의료진번호'])
-                print('예약날짜 :', reservation['예약날짜'])
+
+                user=users[reservation['환자번호']]
+                doctor=doctors[reservation['의료진번호']]
+
+                print('환자이름 :', user['이름'])
+                print('진료과 :', doctor['진료과'])
+                print('진료의 :', doctor['이름'])
                 print('예약시간 :', reservation['예약시간'])
-                print('총금액 :', reservation['총금액'])
                 print('상태 :', reservation['상태'])
                 print()
 
@@ -1137,34 +1150,114 @@ def modify_reservation(current_user):
 def cancel_my_reservation(current_user):
     print('\n======== 예약 취소 ========')
 
-    reservations = []
-
-    # 1. 파일에서 데이터 읽어오기
-    with open('reservations_with_fee_breakdown.csv', 'r', encoding='utf-8-sig', newline='') as file:
+    # 예약 정보 읽기
+    with open('reservations_total_only.csv', 'r', encoding='utf-8-sig', newline='') as file:
         reader = csv.DictReader(file)
         fieldnames = reader.fieldnames
-        for reservation in reader:
-            reservations.append(reservation)
+        reservations = list(reader)
 
 
-        reservation_number = input('취소할 예약번호 : ').strip()
-        is_found = False
+    # 회원 정보 읽기
+    users = {}
 
-        for reservation in reservations:
-            if reservation['예약번호'].strip() == reservation_number and reservation['환자번호']==current_user['환자번호']:
-                reservation['상태'] ='예약취소'
-                print(current_user['이름'], '님의 예약을 취소합니다.')
-                is_found = True
+    with open('user.csv', 'r', encoding='utf-8-sig', newline='') as file:
+        reader = csv.DictReader(file)
 
-    if is_found:
-        with open('reservations_with_fee_breakdown.csv', 'w', encoding='utf-8-sig', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()  # 맨 첫 줄에 컬럼명(헤더) 작성
-            writer.writerows(reservations)  # '취소'로 바뀐 데이터 전체 작성
-    else:
-        print("일치하는 예약 정보를 찾을 수 없습니다.")
+        for user in reader:
+            users[user['환자번호']] = user
 
-    print()
+
+    # 의료진 정보 읽기
+    doctors = {}
+
+    with open('doctors.csv', 'r', encoding='utf-8-sig', newline='') as file:
+        reader = csv.DictReader(file)
+
+        for doctor in reader:
+            doctors[doctor['의료진번호']] = doctor
+
+    # 내 예약 목록 출력
+    my_reservations = []
+
+    for reservation in reservations:
+        # 로그인한 사용자의 예약만 출력
+        if reservation['환자번호'].strip() == current_user['환자번호'].strip() and reservation['상태'].strip()  == '예약완료':
+            my_reservations.append(reservation)
+
+    if len(my_reservations) == 0:
+        print("취소 가능한 예약이 없습니다.")
+        return
+
+    # 표 출력
+
+    table = []
+
+    for i, reservation in enumerate(my_reservations, start=1):
+        patient = users.get(reservation["환자번호"], {})
+        doctor = doctors.get(reservation["의료진번호"], {})
+
+        table.append([
+            i,
+            reservation["환자번호"],
+            patient.get("이름", "-"),
+            doctor.get("진료과", "-"),
+            doctor.get("이름", "-"),
+            reservation["예약날짜"],
+            reservation["예약시간"],
+            reservation["상태"]
+        ])
+
+    print(tabulate(
+        table,
+        headers=[
+            "번호",
+            "환자번호",
+            "환자이름",
+            "진료과",
+            "진료의",
+            "예약날짜",
+            "예약시간",
+            "상태"
+        ],
+        tablefmt="grid",
+        stralign="center"
+    ))
+
+    # 취소할 예약 선택
+    choice = input("\n취소할 번호를 입력하세요 : ").strip()
+
+    if not choice.isdigit():
+        print("잘못된 입력입니다.")
+        return
+
+    choice = int(choice)
+
+    if choice < 1 or choice > len(my_reservations):
+        print("번호가 올바르지 않습니다.")
+        return
+
+    target = my_reservations[choice - 1]
+
+    confirm = input("정말 예약을 취소하시겠습니까? (Y/N) : ").upper()
+
+    if confirm != "Y":
+        print("예약 취소가 취소되었습니다.")
+        return
+
+    # 상태 변경
+    for reservation in reservations:
+        if reservation["예약번호"] == target["예약번호"]:
+            reservation["상태"] = "예약취소"
+            break
+
+    # 저장
+    with open("reservations_total_only.csv", "w", encoding="utf-8-sig", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(reservations)
+
+    print("\n예약이 정상적으로 취소되었습니다.")
+    
 
 '''============= 진료 이력 조회 ============='''
 # 진료 이력 조회 전체 흐름
@@ -1177,11 +1270,11 @@ def medical_history(current_user):
         if choice == '1':
             show_medical_history(current_user)
 
-        #elif choice == '2':
-        #    show_medical_history_detail(current_user)
+        elif choice == '2':
+           show_medical_history_detail(current_user)
 
-        #elif choice == '3':
-        #    show_medical_fee(current_user)
+        elif choice == '3':
+           show_medical_fee(current_user)
 
         elif choice == '0':
             break
