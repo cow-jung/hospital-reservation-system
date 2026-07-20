@@ -64,27 +64,13 @@ def member_manage(current_user):
     while True:
         member_manage_menu()
 
-        choice = input('메뉴를 선택하세요 > ')
+        choice = input('메뉴를 선택하세요 > ').strip()
 
         if choice == '1':
             show_all_members()
-            pause()
 
         elif choice == '2':
-            search_member_by_patient_number()
-            pause()
-
-        elif choice == '3':
             search_member_by_name()
-            pause()
-
-        elif choice == '4':
-            update_member()
-            pause()
-
-        elif choice == '5':
-            delete_member()
-            pause()
 
         elif choice == '0':
             break
@@ -92,125 +78,344 @@ def member_manage(current_user):
         else:
             print('올바른 메뉴 번호를 입력하세요.\n')
 
-# 회원 관리 메뉴 출력
 
 def member_manage_menu():
     clear_screen()
     print()
+
     lines = [
         '1. 전체 회원 조회',
-        '2. 환자번호로 조회',
-        '3. 이름으로 조회',
-        '4. 회원 정보 수정',
-        '5. 회원 삭제',
+        '2. 이름으로 조회',
         '0. 이전 메뉴'
     ]
+
     print_box(lines, title='회원 관리')
     print()
 
+
+def create_member_table(members, title, start_number=1):
+    member_table = Table(
+        title=title,
+        box=box.ROUNDED,
+        header_style='bold white',
+        border_style='bright_white',
+        show_lines=True,
+        expand=False
+    )
+
+    member_table.add_column('번호', justify='center', style='cyan', no_wrap=True)
+    member_table.add_column('환자번호', justify='center', no_wrap=True)
+    member_table.add_column('아이디', justify='center', no_wrap=True)
+    member_table.add_column('이름', justify='center', no_wrap=True)
+    member_table.add_column('생년월일', justify='center', no_wrap=True)
+    member_table.add_column('성별', justify='center', no_wrap=True)
+    member_table.add_column('연락처', justify='center', no_wrap=True)
+    member_table.add_column('회원상태', justify='center', no_wrap=True)
+    member_table.add_column('권한', justify='center', no_wrap=True)
+
+    for index, member in enumerate(
+        members,
+        start=start_number
+    ):
+        member_table.add_row(
+            str(index),
+            member.get('환자번호', '-'),
+            member.get('아이디', '-'),
+            member.get('이름', '-'),
+            member.get('생년월일', '-'),
+            member.get('성별', '-'),
+            member.get('연락처', '-'),
+            member.get('회원상태', '-'),
+            member.get('권한', '-')
+        )
+
+    return member_table
+
+
+def select_member_action(selected_member):
+    while True:
+        print()
+        print(
+            f"선택한 회원 : "
+            f"{selected_member.get('이름', '-')} / "
+            f"{selected_member.get('환자번호', '-')}"
+        )
+        print('1. 회원 정보 수정')
+        print('2. 회원 삭제')
+        print('0. 이전 메뉴')
+
+        action = input('메뉴를 선택하세요 > ').strip()
+
+        if action == '1':
+            update_member(
+                selected_member.get('환자번호', '')
+            )
+            pause()
+            return
+
+        elif action == '2':
+            delete_member(
+                selected_member.get('환자번호', '')
+            )
+            pause()
+            return
+
+        elif action == '0':
+            return
+
+        else:
+            print('올바른 메뉴 번호를 입력하세요.')
+
+
 def show_all_members():
-    print('\n======== 전체 회원 조회 ========')
+    try:
+        with open(
+            USER_CSV,
+            'r',
+            encoding='utf-8-sig',
+            newline=''
+        ) as file:
+            reader = csv.DictReader(file)
+            members = list(reader)
 
-    # user.csv 전체 회원 조회
-    with open(USER_CSV, 'r', encoding='utf-8-sig', newline='') as file:
-        reader = csv.DictReader(file)
-
-        # 회원이 없을 경우 확인
-        exist = False
-
-        # 모든 회원 출력
-        for member in reader:
-            exist = True
-
-            print(f'''
-               환자번호 : {member['환자번호']}
-               아이디 : {member['아이디']}
-               비밀번호 : {member['비밀번호']}
-               이름 : {member['이름']}
-               생년월일 : {member['생년월일']}
-               성별 : {member['성별']}
-               연락처 : {member['연락처']}
-               ------------------------------
-               ''')
-
-        if not exist:
-            print('등록된 회원이 없습니다.')
-
-def search_member_by_patient_number():
-    print('\n======== 환자번호 조회 ========')
-
-    patient_number = input('환자번호를 입력하세요 > ').strip().upper()
-
-    found = False
-
-    with open(USER_CSV, 'r', encoding='utf-8-sig',newline='') as file:
-        reader = csv.DictReader(file)
-
-        for member in reader:
-            if member['환자번호'] == patient_number:
-                found = True
-
-                print(f"""
-환자번호 : {member['환자번호']}
-이름     : {member['이름']}
-아이디   : {member['아이디']}
-연락처   : {member['연락처']}
-생년월일 : {member['생년월일']}
-성별     : {member['성별']}
-회원상태 : {member['회원상태']}
-권한     : {member['권한']}
-""")
-                break
-
-    if not found:
-        print('일치하는 회원이 없습니다.')
-
-def search_member_by_name():
-    print('\n======== 이름 조회 ========')
-
-    name = input('이름을 입력하세요 > ').strip()
-    found_members = []
-
-    with open(USER_CSV, 'r', encoding='utf-8-sig', newline='') as file:
-        reader = csv.DictReader(file)
-
-        for member in reader:
-            if member['이름'] == name:
-                found_members.append(member)
-
-    if not found_members:
-        print('일치하는 회원이 없습니다.')
+    except FileNotFoundError:
+        print(f'{USER_CSV} 파일을 찾을 수 없습니다.')
         return
 
-    for member in found_members:
-        print(f"""
-환자번호 : {member['환자번호']}
-이름     : {member['이름']}
-아이디   : {member['아이디']}
-연락처   : {member['연락처']}
-생년월일 : {member['생년월일']}
-성별     : {member['성별']}
-회원상태 : {member['회원상태']}
-권한     : {member['권한']}
-------------------------------
-""")
+    if not members:
+        print('\n등록된 회원이 없습니다.')
+        pause()
+        return
 
-def update_member():
+    members.sort(
+        key=lambda member: member.get('환자번호', '')
+    )
+
+    page_size = 10
+    total_count = len(members)
+    total_pages = (
+        total_count + page_size - 1
+    ) // page_size
+    current_page = 1
+
+    while True:
+        clear_screen()
+
+        start_index = (current_page - 1) * page_size
+        end_index = start_index + page_size
+        page_members = members[start_index:end_index]
+
+        member_table = create_member_table(
+            page_members,
+            (
+                f'👥 전체 회원 조회 '
+                f'[{current_page}/{total_pages} 페이지]'
+            ),
+            start_number=start_index + 1
+        )
+
+        console.print()
+        console.print(member_table)
+
+        first_number = start_index + 1
+        last_number = min(end_index, total_count)
+
+        console.print(
+            f'\n[cyan]전체 {total_count}명 중 '
+            f'{first_number}~{last_number}명을 표시합니다.[/cyan]'
+        )
+
+        console.print(
+            '[bold]회원 번호[/bold]. 수정/삭제 선택  '
+            '[bold]N[/bold]. 다음 페이지  '
+            '[bold]P[/bold]. 이전 페이지  '
+            '[bold]F[/bold]. 첫 페이지  '
+            '[bold]L[/bold]. 마지막 페이지  '
+            '[bold]0[/bold]. 이전 메뉴'
+        )
+
+        page_choice = input(
+            '회원 번호 또는 메뉴를 선택하세요 > '
+        ).strip().upper()
+
+        if page_choice == '0':
+            return
+
+        elif page_choice == 'N':
+            if current_page < total_pages:
+                current_page += 1
+            else:
+                console.print('[yellow]마지막 페이지입니다.[/yellow]')
+                pause()
+
+        elif page_choice == 'P':
+            if current_page > 1:
+                current_page -= 1
+            else:
+                console.print('[yellow]첫 페이지입니다.[/yellow]')
+                pause()
+
+        elif page_choice == 'F':
+            current_page = 1
+
+        elif page_choice == 'L':
+            current_page = total_pages
+
+        elif page_choice.isdigit():
+            selected_number = int(page_choice)
+
+            if not first_number <= selected_number <= last_number:
+                print('현재 페이지에 표시된 회원 번호를 입력하세요.')
+                pause()
+                continue
+
+            selected_member = members[selected_number - 1]
+            select_member_action(selected_member)
+
+            try:
+                with open(
+                    USER_CSV,
+                    'r',
+                    encoding='utf-8-sig',
+                    newline=''
+                ) as file:
+                    reader = csv.DictReader(file)
+                    members = list(reader)
+
+                members.sort(
+                    key=lambda member: member.get(
+                        '환자번호',
+                        ''
+                    )
+                )
+
+            except FileNotFoundError:
+                print(f'{USER_CSV} 파일을 찾을 수 없습니다.')
+                return
+
+        else:
+            print(
+                '현재 페이지의 회원 번호 또는 '
+                'N, P, F, L, 0을 입력하세요.'
+            )
+            pause()
+
+
+def search_member_by_name():
+    while True:
+        clear_screen()
+        print('\n======== 이름으로 회원 조회 ========')
+
+        search_value = input(
+            '회원 이름 일부를 입력하세요 (0. 이전) > '
+        ).strip()
+
+        if search_value == '0':
+            return
+
+        if not search_value:
+            print('검색할 이름을 입력하세요.')
+            pause()
+            continue
+
+        found_members = []
+
+        try:
+            with open(
+                USER_CSV,
+                'r',
+                encoding='utf-8-sig',
+                newline=''
+            ) as file:
+                reader = csv.DictReader(file)
+
+                for member in reader:
+                    member_name = member.get('이름', '')
+
+                    if search_value in member_name:
+                        found_members.append(member)
+
+        except FileNotFoundError:
+            print(f'{USER_CSV} 파일을 찾을 수 없습니다.')
+            return
+
+        if not found_members:
+            print('일치하는 회원이 없습니다.')
+            pause()
+            continue
+
+        found_members.sort(
+            key=lambda member: (
+                member.get('이름', ''),
+                member.get('환자번호', '')
+            )
+        )
+
+        clear_screen()
+
+        member_table = create_member_table(
+            found_members,
+            f'🔎 회원 검색 결과 ({len(found_members)}명)'
+        )
+
+        console.print()
+        console.print(member_table)
+        print('0. 이전 메뉴')
+
+        while True:
+            selected_value = input(
+                '수정/삭제할 회원 번호를 선택하세요 > '
+            ).strip()
+
+            if selected_value == '0':
+                return
+
+            if not selected_value.isdigit():
+                print('목록에 있는 숫자를 입력하세요.')
+                continue
+
+            selected_number = int(selected_value)
+
+            if not 1 <= selected_number <= len(found_members):
+                print('목록 범위 안의 번호를 입력하세요.')
+                continue
+
+            selected_member = found_members[
+                selected_number - 1
+            ]
+            select_member_action(selected_member)
+            break
+
+
+def update_member(patient_number=None):
     print('\n======== 회원 정보 수정 ========')
 
     file_path = USER_CSV
 
-    with open(file_path, 'r', encoding='utf-8-sig', newline='') as file:
-        reader = csv.DictReader(file)
-        fieldnames = reader.fieldnames
-        members = list(reader)
+    try:
+        with open(
+            file_path,
+            'r',
+            encoding='utf-8-sig',
+            newline=''
+        ) as file:
+            reader = csv.DictReader(file)
+            fieldnames = reader.fieldnames
+            members = list(reader)
 
-    patient_number = input('수정할 환자번호를 입력하세요 > ').strip().upper()
+    except FileNotFoundError:
+        print(f'{USER_CSV} 파일을 찾을 수 없습니다.')
+        return
+
+    if patient_number is None:
+        patient_number = input(
+            '수정할 환자번호를 입력하세요 > '
+        ).strip().upper()
 
     target_member = None
 
     for member in members:
-        if member['환자번호'] == patient_number:
+        if member.get('환자번호') == patient_number:
             target_member = member
             break
 
@@ -218,6 +423,10 @@ def update_member():
         print('해당 회원이 존재하지 않습니다.')
         return
 
+    print(
+        f"선택 회원 : {target_member.get('이름', '-')} "
+        f"/ {target_member.get('환자번호', '-')}"
+    )
     print('1. 이름')
     print('2. 연락처')
     print('3. 회원상태')
@@ -235,27 +444,35 @@ def update_member():
         target_member['이름'] = new_name
 
     elif choice == '2':
-        new_phone = input('새 연락처(010-0000-0000) : ').strip()
+        new_phone = input(
+            '새 연락처(010-0000-0000) : '
+        ).strip()
 
         if not validate_phone_number(new_phone):
             print('연락처 형식이 올바르지 않습니다.')
             return
 
         for member in members:
-            if (member['연락처'] == new_phone and member['환자번호'] != patient_number):
+            if (
+                member.get('연락처') == new_phone
+                and member.get('환자번호')
+                != patient_number
+            ):
                 print('이미 사용 중인 연락처입니다.')
                 return
 
         target_member['연락처'] = new_phone
 
     elif choice == '3':
-        new_status = input('새 회원상태(정상/탈퇴) : ').strip()
+        new_status = input(
+            '새 회원상태(정상/탈퇴) : '
+        ).strip()
 
         if new_status not in ['정상', '탈퇴']:
             print('회원상태는 정상 또는 탈퇴만 가능합니다.')
             return
 
-        if target_member['권한'] == 'admin':
+        if target_member.get('권한') == 'admin':
             print('관리자 계정 상태는 변경할 수 없습니다.')
             return
 
@@ -268,29 +485,51 @@ def update_member():
         print('잘못된 입력입니다.')
         return
 
-    with open(file_path, 'w', encoding='utf-8-sig', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+    with open(
+        file_path,
+        'w',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
         writer.writeheader()
         writer.writerows(members)
 
     print('회원 정보가 수정되었습니다.')
 
-def delete_member():
+
+def delete_member(patient_number=None):
     print('\n======== 회원 탈퇴 처리 ========')
 
     file_path = USER_CSV
 
-    with open(file_path, 'r', encoding='utf-8-sig', newline='') as file:
-        reader = csv.DictReader(file)
-        fieldnames = reader.fieldnames
-        members = list(reader)
+    try:
+        with open(
+            file_path,
+            'r',
+            encoding='utf-8-sig',
+            newline=''
+        ) as file:
+            reader = csv.DictReader(file)
+            fieldnames = reader.fieldnames
+            members = list(reader)
 
-    patient_number = input('탈퇴 처리할 환자번호를 입력하세요 > ').strip().upper()
+    except FileNotFoundError:
+        print(f'{USER_CSV} 파일을 찾을 수 없습니다.')
+        return
+
+    if patient_number is None:
+        patient_number = input(
+            '탈퇴 처리할 환자번호를 입력하세요 > '
+        ).strip().upper()
 
     target_member = None
 
     for member in members:
-        if member['환자번호'] == patient_number:
+        if member.get('환자번호') == patient_number:
             target_member = member
             break
 
@@ -298,15 +537,18 @@ def delete_member():
         print('해당 회원은 존재하지 않습니다.')
         return
 
-    if target_member['권한'] == 'admin':
+    if target_member.get('권한') == 'admin':
         print('관리자 계정은 탈퇴 처리할 수 없습니다.')
         return
 
-    if target_member['회원상태'] == '탈퇴':
+    if target_member.get('회원상태') == '탈퇴':
         print('이미 탈퇴 처리된 회원입니다.')
         return
 
-    answer = input(f"{target_member['이름']} 회원을 " '탈퇴 처리하시겠습니까? (Y/N) > ').strip().upper()
+    answer = input(
+        f"{target_member.get('이름', '-')} 회원을 "
+        '탈퇴 처리하시겠습니까? (Y/N) > '
+    ).strip().upper()
 
     if answer != 'Y':
         print('탈퇴 처리가 취소되었습니다.')
@@ -314,8 +556,16 @@ def delete_member():
 
     target_member['회원상태'] = '탈퇴'
 
-    with open(file_path, 'w', encoding='utf-8-sig', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+    with open(
+        file_path,
+        'w',
+        encoding='utf-8-sig',
+        newline=''
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
         writer.writeheader()
         writer.writerows(members)
 
@@ -1767,23 +2017,13 @@ def search_payment_by_patient():
             matched_patients,
             start=1
         ):
-            phone_number = patient['연락처']
-            phone_parts = phone_number.split('-')
-
-            if len(phone_parts) == 3:
-                masked_phone = (
-                    f'{phone_parts[0]}-****-{phone_parts[2]}'
-                )
-            else:
-                masked_phone = phone_number
-
             patient_table.add_row(
                 str(index),
                 patient['환자번호'],
                 patient['이름'],
                 patient['생년월일'],
                 patient['성별'],
-                masked_phone
+                patient['연락처']
             )
 
         console.print(patient_table)
