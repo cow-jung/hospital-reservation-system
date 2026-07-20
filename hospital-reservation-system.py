@@ -388,14 +388,14 @@ def department_doctor_view():
 
 # 진료과 전체 목록 출력
 def show_departments():
-    print('======== 진료과 ========')
+    print('========== 진료과 ==========')
     print('1. 내과')
     print('2. 외과')
     print('3. 정형외과')
     print('4. 소아과')
     print('5. 피부과')
     print('0. 이전')
-    print('=============================\n')
+    print('============================\n')
 
 # wcswidth 기준으로 가운데 정렬해주는 함수 (새로 추가)
 def center_by_width(text, width):
@@ -569,11 +569,9 @@ def reserve_by_history(current_user):
     # 의료진 번호로 의료진 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n===================== [{current_user['이름']}]님의 진료 이력 =====================")
-
     # 출력 및 선택을 위해 리스트에 저장
     display_list = []
-
+    table_data = []
     # enumerate 대신 직접 번호를 세는 변수(display_index)를 만듭니다.
     display_index = 1
 
@@ -588,14 +586,38 @@ def reserve_by_history(current_user):
             doctor_info_name = doctor_info['이름']
 
             display_list.append(doctor_info)
-            # display_index를 사용하여 화면에 출력합니다.
-            print(f"{display_index}. 진료과: {department_name} / 의료진: {doctor_info_name} / 진료 날짜: {date}")
-
-            # 출력이 성공했을 때만 다음 번호표로 숫자를 1 올립니다.
+            table_data.append([
+                display_index,
+                department_name,
+                doctor_info_name,
+                date
+            ])
             display_index += 1
+            # 출력이 성공했을 때만 다음 번호표로 숫자를 1 올립니다.
 
-    print("\n0. 이전 메뉴")
-    print("==================================================================")
+        # tabulate를 활용한 표 출력 로직
+    if table_data:
+        table = tabulate(
+            table_data,
+            headers=['번호', '진료과', '의료진', '진료 날짜'],
+            tablefmt='grid',
+            disable_numparse=True,
+            colalign=('center', 'center', 'center', 'center')
+        )
+        first_line = table.splitlines()[0]
+        table_width = wcswidth(first_line)
+        title = f"🗓️ [{current_user['이름']}]님의 진료 이력"
+
+        print()
+        print('=' * table_width)
+        print(center_by_width(title, table_width))
+        print('=' * table_width)
+        print(table)
+        print(center_by_width("0. 이전 메뉴", table_width))
+        print('=' * table_width)
+    else:
+        print("\n표시할 진료 이력이 없습니다.")
+        return
 
     # 4. 예약할 항목 선택
     while True:
@@ -1076,16 +1098,50 @@ def modify_reservation(current_user):
     # 의사 정보를 쉽게 찾기 위해 딕셔너리 생성
     doctor_dict = {doctor_info['의료진번호']: doctor_info for doctor_info in doctors}
 
-    print(f"\n====================== [{current_user['이름']}]님의 예약 변경 ======================")
-    for index, record in enumerate(active_reservations, 1):
+    valid_active_reservations = []  # 에러 방지를 위해 의사 정보가 존재하는 예약만 담을 리스트
+    table_data = []  # 표 데이터 리스트
+    display_index = 1
+
+    for record in active_reservations:
         doctor_info = doctor_dict.get(record['의료진번호'])
         if doctor_info:
-            print(
-                f"{index}. {doctor_info['진료과']} {doctor_info['이름']} 원장 / 기존 예약: {record['예약날짜']} {record['예약시간']}")
-    print("\n0. 이전 메뉴로 돌아가기")
-    print(f"====================================================================")
+            valid_active_reservations.append(record)
 
-    # 2. 수정할 예약 선택
+            # 예약번호는 제외하고 필요한 정보만 표에 추가
+            table_data.append([
+                display_index,
+                doctor_info['진료과'],
+                doctor_info['이름'],
+                record['예약날짜'],
+                record['예약시간']
+            ])
+            display_index += 1
+
+        # tabulate 표 출력 로직
+    if table_data:
+        table = tabulate(
+            table_data,
+            headers=['번호', '진료과', '의료진', '예약날짜', '예약시간'],
+            tablefmt='grid',
+            disable_numparse=True,
+            colalign=('center', 'center', 'center', 'center', 'center')
+        )
+        first_line = table.splitlines()[0]
+        table_width = wcswidth(first_line)
+        title = f"📝 [{current_user['이름']}]님의 예약 변경"
+
+        print()
+        print('=' * table_width)
+        print(center_by_width(title, table_width))
+        print('=' * table_width)
+        print(table)
+        print(center_by_width("0. 이전 메뉴", table_width))
+        print('=' * table_width)
+    else:
+        print("\n표시할 수 있는 예약 내역이 없습니다.")
+        return
+
+        # 2. 수정할 예약 선택
     while True:
         try:
             input_value = input("\n변경할 예약 번호를 선택하세요: ").strip()
@@ -1095,11 +1151,12 @@ def modify_reservation(current_user):
                 raise ValueError("공백 입력은 불가합니다.")
 
             choice = int(input_value)
-            if not (1 <= choice <= len(active_reservations)):
+            # valid_active_reservations의 길이를 기준으로 검사 (의사가 삭제된 경우의 에러 방지)
+            if not (1 <= choice <= len(valid_active_reservations)):
                 raise ValueError("범위를 벗어난 번호입니다.")
 
             # 사용자가 선택한 수정 대상 예약 정보
-            target_reservation = active_reservations[choice - 1]
+            target_reservation = valid_active_reservations[choice - 1]
             break
         except ValueError as error:
             if "invalid literal" in str(error):
